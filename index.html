@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Perfume Formula Generator v2</title>
+    <!-- 1. 読み込み先をSCSSへ変更 -->
+    <link rel="stylesheet" href="./src/scss/style.scss" />
+    <!-- 2. PDF化ライブラリ（html2pdf.js）の読み込み -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🧪 調香フォーミュラ・ジェネレーター v2</h1>
+
+      <!-- 基本情報 -->
+      <div class="section card">
+        <h2>1. 基本情報</h2>
+        <div class="input-group">
+          <label>試作番号 / 名前:</label>
+          <input
+            type="text"
+            id="perfumeName"
+            value="No.3.0 / ドライ・インセンスウッド"
+          />
+        </div>
+        <div class="input-group">
+          <label>作成日:</label>
+          <input type="date" id="createDate" />
+        </div>
+        <div class="input-group">
+          <label>コンセプト・目標:</label>
+          <textarea id="concept" rows="3">
+甘さを極限まで排除し、シダー、インセンス、ペッパーがパリッと知的に香る硬質なドライウッド。</textarea
+          >
+        </div>
+      </div>
+
+      <!-- 溶剤（エタノール）設定 -->
+      <div class="section card">
+        <h2>2. 溶剤（エタノール）設定</h2>
+        <div class="input-group">
+          <label>調整モードを選択:</label>
+          <select id="solventMode">
+            <option value="auto">
+              狙いの賦香率(%)からエタノール量を自動計算（おすすめ）
+            </option>
+            <option value="manual">
+              手動調整（追加するエタノール量を自分で決める）
+            </option>
+          </select>
+        </div>
+
+        <!-- モード：自動計算の入力欄 -->
+        <div id="autoModeContainer" class="input-group">
+          <label>狙いの賦香率 (％):</label>
+          <input
+            type="number"
+            id="targetConcentration"
+            value="12.2"
+            step="0.1"
+            min="0.1"
+            max="100"
+          />
+        </div>
+
+        <!-- モード：手動調整の入力欄 -->
+        <div id="manualModeContainer" class="input-group" style="display: none">
+          <label>追加する無水エタノール量 (g):</label>
+          <input type="number" id="addedEthanol" value="6.80" step="0.01" />
+        </div>
+
+        <!-- エラー・警告文表示エリア（通常時は非表示） -->
+        <div id="warningBox" class="warning-box" style="display: none"></div>
+      </div>
+
+      <!-- 香料リスト（動的追加・マスタ選択テーブル） -->
+      <div class="section card">
+        <div class="table-header">
+          <h2>3. 香料データ入力</h2>
+          <button type="button" onclick="window.addNewRow()" class="btn-add">
+            ＋ 香料を追加
+          </button>
+        </div>
+        <p class="subtitle">
+          ※素材マスタから選択するか、カスタムで自由に入力してください。
+        </p>
+        <table id="ingredientsTable">
+          <thead>
+            <tr>
+              <th>ノート</th>
+              <th>香料名（マスタ選択 / 手入力）</th>
+              <th>実測重量 (g)</th>
+              <th>希釈率 (%)</th>
+              <th>実質香料 (g)</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="ingredientsBody">
+            <!-- JSで動的に初期データが流し込まれます -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 計算結果表示 -->
+      <div class="section card result-box">
+        <h2>📊 計算結果（リアルタイム自動計算）</h2>
+        <div class="results-grid">
+          <div class="result-item">
+            <span>追加が必要な無水エタノール</span>
+            <strong id="resAddedEthanol">0.00</strong> g
+          </div>
+          <div class="result-item">
+            <span>実質エタノール総量（希釈分含む）</span>
+            <strong id="resTotalEthanol">0.00</strong> g
+          </div>
+          <div class="result-item">
+            <span>実質香料（ドライ）総量</span>
+            <strong id="resTotalDry">0.00</strong> g
+          </div>
+          <div class="result-item">
+            <span>完成総重量</span>
+            <strong id="resTotalWeight">0.00</strong> g
+          </div>
+          <div class="result-item highlight">
+            <span>実質賦香率</span>
+            <strong id="resConcentration">0.00</strong> %
+          </div>
+        </div>
+      </div>
+
+      <!-- 出力とコピー・PDF発行ボタン -->
+      <div class="section card">
+        <h2>📝 生成されたフォーミュラシート</h2>
+        <textarea id="outputSheet" readonly rows="15"></textarea>
+        <button onclick="window.copyToClipboard()" class="btn">
+          シートをクリップボードにコピー
+        </button>
+        <!-- 3. 操作用ボタンを追加 -->
+        <div class="action-box">
+          <button onclick="window.generatePDF()" class="btn btn-secondary">
+            📋 PDFフォーミュラシートを発行
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. PDF生成用の隠しテンプレート領域 (style.scssの指定で画面上は非表示になります) -->
+    <div id="pdf-render-area">
+      <div class="pdf-template" id="pdf-content">
+        <h1 id="pdfTargetName">試作フォーミュラ</h1>
+        <div class="pdf-subtitle">LABORATORY FORMULA SHEET</div>
+
+        <!-- 基本情報マトリクス -->
+        <table class="pdf-meta-table">
+          <tr>
+            <td class="label">作成日</td>
+            <td class="value" id="pdfTargetDate">-</td>
+            <td class="label">想定賦香率</td>
+            <td class="value" id="pdfTargetConc">-</td>
+          </tr>
+          <tr>
+            <td class="label">コンセプト</td>
+            <td class="concept-value" colspan="3" id="pdfTargetConcept">-</td>
+          </tr>
+        </table>
+
+        <div class="pdf-section-title">
+          処方マトリクス (スマート・コンパウンディング)
+        </div>
+        <!-- 処方テーブル -->
+        <table class="pdf-formula-table">
+          <thead>
+            <tr>
+              <th style="width: 15%">希釈・原液</th>
+              <th style="width: 35%">香料名</th>
+              <th style="width: 15%">% 比率(純分比)</th>
+              <th style="width: 15%">狙う重量 (g)</th>
+              <th style="width: 20%">実質香料純分 (g)</th>
+            </tr>
+          </thead>
+          <tbody id="pdfFormulaBody">
+            <!-- JSでリアルタイムに組み立てられます -->
+          </tbody>
+        </table>
+
+        <div class="pdf-section-title">熟成 (マセレーション) 記録・評価</div>
+        <!-- 定点観測用手書きスペース -->
+        <div class="pdf-maceration-box">
+          <div class="maceration-item">
+            <div class="maceration-header">[ Day 0 (調香直後) ]</div>
+          </div>
+          <div class="maceration-item">
+            <div class="maceration-header">[ Day 7 (1週間後) ]</div>
+          </div>
+          <div class="maceration-item">
+            <div class="maceration-header">[ Day 30 (1ヶ月後・完成) ]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. 読み込み先をsrc/main.jsへ変更 -->
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
