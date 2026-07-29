@@ -376,7 +376,12 @@ window.generatePDF = function () {
   pdfFormulaBody.innerHTML = "";
 
   let totalWetWeight = 0;
-  let totalDryWeight = parseFloat(resTotalDry) || 0;
+
+  // 画面のテキストから取得するのをやめ、裏側で正確な純分合計を事前計算する
+  let exactTotalDryWeight = 0;
+  currentFormula.ingredients.forEach((ing) => {
+    exactTotalDryWeight += ing.weight * (ing.dilution / 100);
+  });
 
   // 各香料行の生成
   currentFormula.ingredients.forEach((ing) => {
@@ -385,9 +390,10 @@ window.generatePDF = function () {
     const dryWeight = ing.weight * (ing.dilution / 100);
     totalWetWeight += ing.weight;
 
+    // 正確な合計値（exactTotalDryWeight）を使って純分比%を計算する
     const ratio =
-      totalDryWeight > 0
-        ? ((dryWeight / totalDryWeight) * 100).toFixed(2) + "%"
+      exactTotalDryWeight > 0
+        ? ((dryWeight / exactTotalDryWeight) * 100).toFixed(2) + "%"
         : "0.00%";
 
     tr.innerHTML = `
@@ -408,7 +414,7 @@ window.generatePDF = function () {
     <td>[香料液合計]</td>
     <td class="num">100.00%</td>
     <td class="num">${totalWetWeight.toFixed(3)}g</td>
-    <td class="num">${totalDryWeight.toFixed(4)}g</td>
+    <td class="num">${exactTotalDryWeight.toFixed(4)}g</td> <!-- ★修正箇所：正確な合計値を出力 -->
   `;
   pdfFormulaBody.appendChild(trTotalIng);
 
@@ -440,7 +446,7 @@ window.generatePDF = function () {
   // ========================================================
   const renderArea = document.getElementById("pdf-render-area");
 
-  // ★迷子にならないよう、画面の左上にピン留めして背面に隠す
+  // 画面の左上にピン留めして背面に隠す
   renderArea.style.position = "absolute";
   renderArea.style.top = "0";
   renderArea.style.left = "0";
@@ -455,7 +461,7 @@ window.generatePDF = function () {
     html2canvas: {
       scale: 2,
       useCORS: true,
-      scrollY: 0, // ★スクロールによる撮影ズレを防止
+      scrollY: 0, // スクロールによる撮影ズレを防止
     },
     jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
   };
