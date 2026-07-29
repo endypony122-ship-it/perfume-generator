@@ -1,0 +1,42 @@
+@use "variables" as *;
+
+// ==========================================
+// 📦 インベントリ（在庫管理）専用スタイル
+// ==========================================
+.inventory-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+#inventoryTable {
+  th {
+    background-color: #1a1a1a;
+  }
+
+  td {
+    vertical-align: middle;
+  }
+}
+
+.note-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  color: #fff;
+
+  &.top {
+    background-color: #4bc0c0;
+  }
+  &.middle {
+    background-color: #ffce56;
+    color: #111;
+  }
+  &.base {
+    background-color: #ff6384;
+  }
+}

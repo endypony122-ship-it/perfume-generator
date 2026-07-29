@@ -8,194 +8,540 @@
     <link rel="stylesheet" href="./src/scss/style.scss" />
     <!-- 2. PDF化ライブラリ（html2pdf.js）の読み込み -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- 追加：グラフ描画ライブラリ（Chart.js） -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
     <div class="container">
-      <h1>🧪 調香フォーミュラ・ジェネレーター</h1>
-
-      <!-- 基本情報 -->
-      <div class="section card">
-        <h2>1. 基本情報</h2>
-        <div class="input-group">
-          <label>試作番号 / 名前:</label>
-          <input
-            type="text"
-            id="perfumeName"
-            value="No.3.0 / ドライ・インセンスウッド"
-          />
-        </div>
-        <div class="input-group">
-          <label>作成日:</label>
-          <input type="date" id="createDate" />
-        </div>
-        <div class="input-group">
-          <label>コンセプト・目標:</label>
-          <textarea id="concept" rows="3">
-甘さを極限まで排除し、シダー、インセンス、ペッパーがパリッと知的に香る硬質なドライウッド。</textarea
-          >
-        </div>
-      </div>
-
-      <!-- 溶剤（エタノール）設定 -->
-      <div class="section card">
-        <h2>2. 溶剤（エタノール）設定</h2>
-        <div class="input-group">
-          <label>調整モードを選択:</label>
-          <select id="solventMode">
-            <option value="auto">
-              狙いの賦香率(%)からエタノール量を自動計算（おすすめ）
-            </option>
-            <option value="manual">
-              手動調整（追加するエタノール量を自分で決める）
-            </option>
-          </select>
-        </div>
-
-        <!-- モード：自動計算の入力欄 -->
-        <div id="autoModeContainer" class="input-group">
-          <label>狙いの賦香率 (％):</label>
-          <input
-            type="number"
-            id="targetConcentration"
-            value="12.2"
-            step="0.1"
-            min="0.1"
-            max="100"
-          />
-        </div>
-
-        <!-- モード：手動調整の入力欄 -->
-        <div id="manualModeContainer" class="input-group" style="display: none">
-          <label>追加する無水エタノール量 (g):</label>
-          <input type="number" id="addedEthanol" value="6.80" step="0.01" />
-        </div>
-
-        <!-- エラー・警告文表示エリア（通常時は非表示） -->
-        <div id="warningBox" class="warning-box" style="display: none"></div>
-      </div>
-
-      <!-- 香料リスト（動的追加・マスタ選択テーブル） -->
-      <div class="section card">
-        <div class="table-header">
-          <h2>3. 香料データ入力</h2>
-          <button type="button" onclick="window.addNewRow()" class="btn-add">
-            ＋ 香料を追加
-          </button>
-        </div>
-        <p class="subtitle">
-          ※素材マスタから選択するか、カスタムで自由に入力してください。
-        </p>
-        <table id="ingredientsTable">
-          <thead>
-            <tr>
-              <th>ノート</th>
-              <th>香料名（マスタ選択 / 手入力）</th>
-              <th>実測重量 (g)</th>
-              <th>希釈率 (%)</th>
-              <th>実質香料 (g)</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="ingredientsBody">
-            <!-- JSで動的に初期データが流し込まれます -->
-          </tbody>
-        </table>
-      </div>
-
-      <!-- 計算結果表示 -->
-      <div class="section card result-box">
-        <h2>📊 計算結果（リアルタイム自動計算）</h2>
-        <div class="results-grid">
-          <div class="result-item">
-            <span>追加が必要な無水エタノール</span>
-            <strong id="resAddedEthanol">0.00</strong> g
-          </div>
-          <div class="result-item">
-            <span>実質エタノール総量（希釈分含む）</span>
-            <strong id="resTotalEthanol">0.00</strong> g
-          </div>
-          <div class="result-item">
-            <span>実質香料（ドライ）総量</span>
-            <strong id="resTotalDry">0.00</strong> g
-          </div>
-          <div class="result-item">
-            <span>完成総重量</span>
-            <strong id="resTotalWeight">0.00</strong> g
-          </div>
-          <div class="result-item highlight">
-            <span>実質賦香率</span>
-            <strong id="resConcentration">0.00</strong> %
-          </div>
-        </div>
-      </div>
-
-      <!-- 出力とコピー・PDF発行ボタン -->
-      <div class="section card">
-        <h2>📝 生成されたフォーミュラシート</h2>
-        <textarea id="outputSheet" readonly rows="15"></textarea>
-        <button onclick="window.copyToClipboard()" class="btn">
-          シートをクリップボードにコピー
+      <!-- ★追加：ナビゲーションメニューバー -->
+      <nav class="tab-navigation">
+        <button class="nav-btn active" onclick="window.switchTab('view-lab')">
+          📄 フォーミュラ室
         </button>
-        <!-- 3. 操作用ボタンを追加 -->
-        <div class="action-box">
-          <button onclick="window.generatePDF()" class="btn btn-secondary">
-            📋 PDFフォーミュラシートを発行
+        <button class="nav-btn" onclick="window.switchTab('view-inventory')">
+          📦 香料在庫管理
+        </button>
+        <button class="nav-btn" onclick="window.switchTab('view-maceration')">
+          📓 熟成・評価ノート
+        </button>
+        <button class="nav-btn" onclick="window.switchTab('view-settings')">
+          ⚙️ 設定・データ
+        </button>
+      </nav>
+
+      <!-- ======================================================== -->
+      <!-- 📄 部屋1: フォーミュラ・ラボ（現在のメイン機能） -->
+      <!-- ======================================================== -->
+      <div id="view-lab" class="tab-content active">
+        <h1>🧪 調香フォーミュラ・ジェネレーター</h1>
+
+        <!-- ★ここを修正：過去レシピのロード・保存・管理機能 -->
+        <div
+          class="section card"
+          style="border: 1px solid #2196f3; background-color: #152233"
+        >
+          <h2>📂 レシピの保存と管理</h2>
+          <p class="subtitle">
+            現在の処方を履歴として手動保存したり、過去の履歴を呼び出したりできます。
+          </p>
+          <div
+            style="
+              display: flex;
+              gap: 10px;
+              align-items: flex-end;
+              flex-wrap: wrap;
+            "
+          >
+            <div style="flex: 1; min-width: 250px">
+              <label>保存済みのレシピを選択:</label>
+              <select id="recipeLoadSelect">
+                <option value="">-- 保存された履歴がありません --</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              onclick="window.loadSelectedRecipe()"
+              class="btn btn-secondary"
+              style="width: auto; margin-top: 0; padding: 10px 15px"
+            >
+              📂 復元
+            </button>
+            <button
+              type="button"
+              onclick="window.toggleFavoriteRecipe()"
+              class="btn"
+              style="
+                background-color: #ffb300;
+                width: auto;
+                margin-top: 0;
+                padding: 10px 15px;
+                color: #111;
+              "
+            >
+              ⭐ お気に入り
+            </button>
+            <button
+              type="button"
+              onclick="window.deleteSelectedRecipe()"
+              class="btn btn-delete"
+              style="width: auto; margin-top: 0; padding: 10px 15px"
+            >
+              🗑️ 削除
+            </button>
+          </div>
+          <div
+            style="
+              margin-top: 15px;
+              border-top: 1px dashed #333;
+              padding-top: 15px;
+            "
+          >
+            <button
+              type="button"
+              onclick="window.saveCurrentRecipe()"
+              class="btn"
+              style="background-color: #4caf50"
+            >
+              💾 現在の処方を新しく履歴に保存
+            </button>
+          </div>
+        </div>
+
+        <!-- 基本情報 -->
+        <div class="section card">
+          <h2>1. 基本情報</h2>
+          <div class="input-group">
+            <label>試作番号 / 名前:</label>
+            <input
+              type="text"
+              id="perfumeName"
+              value="No.3.0 / ドライ・インセンスウッド"
+            />
+          </div>
+          <div class="input-group">
+            <label>作成日:</label>
+            <input type="date" id="createDate" />
+          </div>
+          <div class="input-group">
+            <label>コンセプト・目標:</label>
+            <textarea id="concept" rows="3">
+甘さを極限まで排除し、シダー、インセンス、ペッパーがパリッと知的に香る硬質なドライウッド。</textarea
+            >
+          </div>
+        </div>
+
+        <!-- 溶剤（エタノール）設定 -->
+        <div class="section card">
+          <h2>2. 溶剤（エタノール）設定</h2>
+          <div class="input-group">
+            <label>調整モードを選択:</label>
+            <select id="solventMode">
+              <option value="auto">
+                狙いの賦香率(%)からエタノール量を自動計算（おすすめ）
+              </option>
+              <option value="manual">
+                手動調整（追加するエタノール量を自分で決める）
+              </option>
+            </select>
+          </div>
+
+          <!-- モード：自動計算の入力欄 -->
+          <div id="autoModeContainer" class="input-group">
+            <label>狙いの賦香率 (％):</label>
+            <input
+              type="number"
+              id="targetConcentration"
+              value="12.2"
+              step="0.1"
+              min="0.1"
+              max="100"
+            />
+          </div>
+
+          <!-- モード：手動調整の入力欄 -->
+          <div
+            id="manualModeContainer"
+            class="input-group"
+            style="display: none"
+          >
+            <label>追加する無水エタノール量 (g):</label>
+            <input type="number" id="addedEthanol" value="6.80" step="0.01" />
+          </div>
+
+          <!-- エラー・警告文表示エリア（通常時は非表示） -->
+          <div id="warningBox" class="warning-box" style="display: none"></div>
+        </div>
+
+        <!-- 香料リスト（動的追加・マスタ選択テーブル） -->
+        <div class="section card">
+          <div class="table-header">
+            <h2>3. 香料データ入力</h2>
+            <button type="button" onclick="window.addNewRow()" class="btn-add">
+              ＋ 香料を追加
+            </button>
+          </div>
+          <p class="subtitle">
+            ※素材マスタから選択するか、カスタムで自由に入力してください。
+          </p>
+          <table id="ingredientsTable">
+            <thead>
+              <tr>
+                <th>ノート</th>
+                <th>香料名（マスタ選択 / 手入力）</th>
+                <th>実測重量 (g)</th>
+                <th>希釈率 (%)</th>
+                <th>実質香料 (g)</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="ingredientsBody">
+              <!-- JSで動的に初期データが流し込まれます -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 計算結果表示 -->
+        <div class="section card result-box">
+          <h2>📊 計算結果（リアルタイム自動計算）</h2>
+          <div class="results-grid">
+            <div class="result-item">
+              <span>追加が必要な無水エタノール</span>
+              <strong id="resAddedEthanol">0.00</strong> g
+            </div>
+            <div class="result-item">
+              <span>実質エタノール総量（希釈分含む）</span>
+              <strong id="resTotalEthanol">0.00</strong> g
+            </div>
+            <div class="result-item">
+              <span>実質香料（ドライ）総量</span>
+              <strong id="resTotalDry">0.00</strong> g
+            </div>
+            <div class="result-item">
+              <span>完成総重量</span>
+              <strong id="resTotalWeight">0.00</strong> g
+            </div>
+            <!-- ★ここに追加：原価表示 -->
+            <div class="result-item">
+              <span>想定原価（香料＋溶剤）</span>
+              <strong id="resTotalCost">0</strong> 円
+            </div>
+            <!-- ★追加ここまで -->
+            <div class="result-item highlight">
+              <span>実質賦香率</span>
+              <strong id="resConcentration">0.00</strong> %
+            </div>
+          </div>
+        </div>
+
+        <!-- 追加：アコードのピラミッド可視化 -->
+        <div class="section card">
+          <h2>📊 香りのピラミッド（T/M/B 比率）</h2>
+          <p class="subtitle">
+            実質香料（ドライ）における、各ノートの構成比率です。
+          </p>
+          <div style="width: 100%; max-width: 350px; margin: 0 auto">
+            <canvas id="pyramidChart"></canvas>
+          </div>
+        </div>
+
+        <!-- スケールアップ用 -->
+        <div class="section card">
+          <h2>⚖️ ワンクリック・スケールアップ</h2>
+          <p class="subtitle">
+            現在の処方比率を保ったまま、目標の総重量に合わせて全香料（およびエタノール）の分量を一括変換します。
+          </p>
+          <div
+            class="input-group"
+            style="display: flex; gap: 10px; align-items: flex-end"
+          >
+            <div style="flex: 1">
+              <label>目標の完成総重量 (g):</label>
+              <input
+                type="number"
+                id="targetScaleWeight"
+                step="0.1"
+                placeholder="例: 50"
+              />
+            </div>
+            <button
+              type="button"
+              onclick="window.scaleUpFormula()"
+              class="btn"
+              style="width: auto; margin-top: 0; padding: 10px 20px"
+            >
+              一括変換
+            </button>
+          </div>
+        </div>
+
+        <!-- 出力とコピー・PDF発行ボタン -->
+        <div class="section card">
+          <h2>📝 生成されたフォーミュラシート</h2>
+          <textarea id="outputSheet" readonly rows="15"></textarea>
+          <button onclick="window.copyToClipboard()" class="btn">
+            シートをクリップボードにコピー
           </button>
+          <!-- 3. 操作用ボタンを追加 -->
+          <div class="action-box">
+            <button onclick="window.generatePDF()" class="btn btn-secondary">
+              📋 PDFフォーミュラシートを発行
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- 4. PDF生成用の隠しテンプレート領域 (style.scssの指定で画面上は非表示になります) -->
+      <!-- ======================================================== -->
+      <!-- 📦 部屋2: インベントリ（香料在庫・マスタ管理）※新規 -->
+      <!-- ======================================================== -->
+      <!-- ======================================================== -->
+      <!-- 📦 部屋2: インベントリ（香料在庫・マスタ管理） -->
+      <!-- ======================================================== -->
+      <div id="view-inventory" class="tab-content">
+        <h1>📦 香料在庫・マスタ管理</h1>
+
+        <!-- 新規香料登録フォーム -->
+        <div class="section card">
+          <h2>➕ 新しい香料を在庫マスタに登録</h2>
+          <form id="inventoryForm" onsubmit="window.addMasterIngredient(event)">
+            <div class="inventory-form-grid">
+              <div class="input-group">
+                <label>香料名:</label>
+                <input
+                  type="text"
+                  id="invName"
+                  placeholder="例: Sylvamber"
+                  required
+                />
+              </div>
+              <div class="input-group">
+                <label>ノート分類:</label>
+                <select id="invNote">
+                  <option value="Top">Top</option>
+                  <option value="Middle">Middle</option>
+                  <option value="Base">Base</option>
+                </select>
+              </div>
+              <div class="input-group">
+                <label>デフォルト希釈率 (%):</label>
+                <input
+                  type="number"
+                  id="invDilution"
+                  value="100"
+                  min="0"
+                  max="100"
+                  required
+                />
+              </div>
+              <div class="input-group">
+                <label>1gあたりの単価 (円):</label>
+                <input type="number" id="invPrice" value="0" min="0" required />
+              </div>
+            </div>
+            <button type="submit" class="btn" style="margin-top: 10px">
+              💾 在庫マスタに登録・保存
+            </button>
+          </form>
+        </div>
+
+        <!-- 在庫一覧テーブル -->
+        <div class="section card">
+          <h2>📋 現在の登録香料一覧</h2>
+          <p class="subtitle">
+            ※ここで登録・削除した香料は、フォーミュラ室の選択肢に自動連動します。
+          </p>
+          <div style="overflow-x: auto">
+            <table id="inventoryTable">
+              <thead>
+                <tr>
+                  <th>ノート</th>
+                  <th>香料名</th>
+                  <th>デフォルト希釈</th>
+                  <th>1g単価 (比重換算済)</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryBody">
+                <!-- JSで動的に一覧が描画されます -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- 📓 部屋3: マセレーション（熟成）＆ 評価ノート -->
+      <!-- ======================================================== -->
+      <div id="view-maceration" class="tab-content">
+        <h1>📓 熟成・評価ノート</h1>
+
+        <!-- 新規ノート記録フォーム -->
+        <div class="section card">
+          <h2>✍️ 新しい評価・経過を記録</h2>
+          <form id="macerationForm" onsubmit="window.addMacerationLog(event)">
+            <div
+              style="
+                display: flex;
+                gap: 15px;
+                flex-wrap: wrap;
+                margin-bottom: 15px;
+              "
+            >
+              <div style="flex: 1; min-width: 200px">
+                <label
+                  style="
+                    display: block;
+                    margin-bottom: 5px;
+                    font-weight: bold;
+                    font-size: 14px;
+                    color: #a0a0a0;
+                  "
+                  >対象のレシピ（保存済みの履歴から選択）:</label
+                >
+                <select id="macRecipeKey" required>
+                  <!-- JSで保存済みのレシピ一覧が自動で入ります -->
+                </select>
+              </div>
+              <div style="width: 150px">
+                <label
+                  style="
+                    display: block;
+                    margin-bottom: 5px;
+                    font-weight: bold;
+                    font-size: 14px;
+                    color: #a0a0a0;
+                  "
+                  >経過日数:</label
+                >
+                <select id="macDays">
+                  <option value="Day 0 (調香直後)">Day 0 (直後)</option>
+                  <option value="Day 3 (3日目)">Day 3 (3日目)</option>
+                  <option value="Day 7 (1週間後)">Day 7 (1週間後)</option>
+                  <option value="Day 14 (2週間後)">Day 14 (2週間後)</option>
+                  <option value="Day 30 (1ヶ月後)">Day 30 (1ヶ月後)</option>
+                  <option value="その他">その他</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label>香りの評価・テイスティングメモ:</label>
+              <textarea
+                id="macMemo"
+                rows="3"
+                placeholder="例: トップの尖りが消えてシダーとパチュリが綺麗に馴染んできた。ミドルに少し華やかさが欲しいかも。"
+                required
+              ></textarea>
+            </div>
+
+            <button type="submit" class="btn">📝 評価ノートに記録する</button>
+          </form>
+        </div>
+
+        <!-- タイムライン表示エリア -->
+        <div class="section card">
+          <h2>🕒 熟成タイムライン・履歴</h2>
+          <div id="macerationTimeline">
+            <!-- JSで記録がタイムライン状に並びます -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- ⚙️ 部屋4: 設定 ＆ バックアップ -->
+      <!-- ======================================================== -->
+      <div id="view-settings" class="tab-content">
+        <h1>⚙️ システム設定・データ管理</h1>
+        
+        <!-- データエクスポート（バックアップ） -->
+        <div class="section card">
+          <h2>📤 データのバックアップ（エクスポート）</h2>
+          <p class="subtitle">これまで登録した「すべてのレシピ履歴」「お気に入りマーク」「在庫マスタ」「熟成ノート」を一括して1つのファイル（JSON形式）としてパソコンに保存します。</p>
+          <p class="subtitle" style="color: #ffb300;">⚠️ 月に1回など定期的にバックアップを取ることで、ブラウザのキャッシュクリアによるデータ消失を防げます。</p>
+          <button type="button" onclick="window.exportAllData()" class="btn" style="background-color: #009688; margin-top: 15px;">
+            📦 バックアップファイルをダウンロード
+          </button>
+        </div>
+
+        <!-- データインポート（復元） -->
+        <div class="section card">
+          <h2>📥 データの復元（インポート）</h2>
+          <p class="subtitle">過去にダウンロードしたバックアップファイルを読み込んで、あなたのラボ環境を完全に復元します。</p>
+          <p class="subtitle" style="color: #f44336;">⚠️ 注意: インポートを実行すると、現在このブラウザに保存されているデータはすべて上書き（上書き前のデータは消去）されます。</p>
+          
+          <div style="margin-top: 20px; border: 1px dashed #444; padding: 15px; border-radius: 6px; background-color: #1a1a1a;">
+            <label style="display:block; margin-bottom:10px; font-weight:bold; color:#a0a0a0;">バックアップファイルを選択 (.json):</label>
+            <input type="file" id="importFile" accept=".json" style="color: #fff; font-size: 14px;" />
+            <button type="button" onclick="window.importAllData()" class="btn" style="background-color: #e91e63; margin-top: 15px;">
+              ⚡ データを完全に上書き復元する
+            </button>
+          </div>
+        </div>
+      </div>
+
+    <!-- ======================================================== -->
+    <!-- 🖨️ PDF生成用の隠しテンプレート領域（最新版） -->
+    <!-- ======================================================== -->
     <div id="pdf-render-area">
-      <div class="pdf-template" id="pdf-content">
-        <h1 id="pdfTargetName">試作フォーミュラ</h1>
-        <div class="pdf-subtitle">LABORATORY FORMULA SHEET</div>
+      <div class="pdf-template">
+        <h1>LABORATORY FORMULA SHEET</h1>
+        <div class="pdf-subtitle">PERFUME FORMULA & LAB NOTE PREPARATION</div>
 
-        <!-- 基本情報マトリクス -->
+        <!-- メタデータ（原価枠を追加） -->
         <table class="pdf-meta-table">
           <tr>
+            <td class="label">作品名 / No.</td>
+            <td class="value" id="pdfPerfumeName">-</td>
             <td class="label">作成日</td>
-            <td class="value" id="pdfTargetDate">-</td>
+            <td class="value" id="pdfCreateDate">-</td>
+          </tr>
+          <tr>
             <td class="label">想定賦香率</td>
-            <td class="value" id="pdfTargetConc">-</td>
+            <td class="value" id="pdfTargetConcentration">-</td>
+            <td class="label">製造原価 (目安)</td>
+            <td class="value" id="pdfTotalCost" style="font-weight: bold; color: #111;">-</td>
           </tr>
           <tr>
             <td class="label">コンセプト</td>
-            <td class="concept-value" colspan="3" id="pdfTargetConcept">-</td>
+            <td class="concept-value" colspan="3" id="pdfConcept">-</td>
           </tr>
         </table>
 
-        <div class="pdf-section-title">
-          処方マトリクス (スマート・コンパウンディング)
-        </div>
-        <!-- 処方テーブル -->
+        <div class="pdf-section-title">処方マトリクス (スマート・コンパウンディング)</div>
         <table class="pdf-formula-table">
           <thead>
             <tr>
-              <th style="width: 15%">希釈・原液</th>
-              <th style="width: 35%">香料名</th>
-              <th style="width: 15%">% 比率(純分比)</th>
-              <th style="width: 15%">狙う重量 (g)</th>
-              <th style="width: 20%">実質香料純分 (g)</th>
+              <th style="width: 15%;">希釈・原液</th>
+              <th style="width: 45%;">香料名</th>
+              <th style="width: 13%;">%比率(純分比)</th>
+              <th style="width: 13%;">狙う重量(g)</th>
+              <th style="width: 14%;">実質香料純分(g)</th>
             </tr>
           </thead>
           <tbody id="pdfFormulaBody">
-            <!-- JSでリアルタイムに組み立てられます -->
+            <!-- JSで動的に処方行が挿入されます -->
           </tbody>
         </table>
 
+        <!-- ★追加：香りの構成比率（グラフの埋め込みエリア） -->
+        <div class="pdf-section-title">香りの構成比率 (揮発度・アコードバランス)</div>
+        <div style="padding: 15px; border: 1px solid #111; background-color: #f9f9f9; margin-bottom: 25px; display: flex; align-items: center;">
+          <div style="flex: 1; text-align: center;">
+            <img id="pdfGraphImage" style="max-height: 160px; width: auto; object-fit: contain;" alt="Formula Chart" />
+          </div>
+          <div style="flex: 1; font-size: 12pt; line-height: 2.0;">
+             <div><strong style="color: #4bc0c0;">■ Top:</strong> <span id="pdfTopRatio">0.0%</span> (<span id="pdfTopWeight">0.0g</span>)</div>
+             <div><strong style="color: #ffce56; text-shadow: 0px 0px 1px #888;">■ Middle:</strong> <span id="pdfMiddleRatio">0.0%</span> (<span id="pdfMiddleWeight">0.0g</span>)</div>
+             <div><strong style="color: #ff6384;">■ Base:</strong> <span id="pdfBaseRatio">0.0%</span> (<span id="pdfBaseWeight">0.0g</span>)</div>
+          </div>
+        </div>
+
+        <!-- ★追加：ここで強制的にPDFのページを分割（改ページ）する -->
+        <div class="html2pdf__page-break"></div>
+
+        <!-- ★修正：熟成（マセレーション）記録・評価（動的流し込みエリア） -->
         <div class="pdf-section-title">熟成 (マセレーション) 記録・評価</div>
-        <!-- 定点観測用手書きスペース -->
-        <div class="pdf-maceration-box">
-          <div class="maceration-item">
-            <div class="maceration-header">[ Day 0 (調香直後) ]</div>
-          </div>
-          <div class="maceration-item">
-            <div class="maceration-header">[ Day 7 (1週間後) ]</div>
-          </div>
-          <div class="maceration-item">
-            <div class="maceration-header">[ Day 30 (1ヶ月後・完成) ]</div>
-          </div>
+        <div id="pdfMacerationLogArea" class="pdf-maceration-box">
+          <!-- ここに新システムで入力した過去の経過メモが自動で綺麗に印字されます -->
         </div>
       </div>
     </div>

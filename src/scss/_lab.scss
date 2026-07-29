@@ -1,0 +1,372 @@
+@use "variables" as *;
+
+// ==========================================
+// 📄 画面表示用スタイル (ベース ＆ 調香室専用)
+// ==========================================
+body {
+  background-color: $bg-dark;
+  color: $text-dark;
+  font-family:
+    "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans",
+    sans-serif;
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 850px;
+  margin: 0 auto;
+}
+
+h1,
+h2 {
+  color: $text-white;
+  border-bottom: 1px solid $border-dark;
+  padding-bottom: 8px;
+  margin-top: 0;
+}
+
+.card {
+  background-color: $card-dark;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.input-group {
+  margin-bottom: 15px;
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: $text-muted-dark;
+    font-size: 14px;
+  }
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  width: 100%;
+  padding: 10px;
+  background-color: $input-bg-dark;
+  border: 1px solid $input-border-dark;
+  border-radius: 4px;
+  color: #fff;
+  box-sizing: border-box;
+  font-size: 14px;
+  &:focus {
+    outline: none;
+    border-color: $primary;
+  }
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid $border-dark;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  h2 {
+    border: none;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  th,
+  td {
+    border: 1px solid $border-dark;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background-color: #252525;
+    color: $text-muted-dark;
+    font-size: 13px;
+  }
+}
+
+.row-note {
+  width: 90px;
+}
+.row-name {
+  width: 220px;
+}
+.row-weight {
+  width: 100px;
+}
+.row-dilution {
+  width: 80px;
+}
+
+.warning-box {
+  background-color: #3e1b1b;
+  border: 1px solid $danger;
+  color: #ff9e9e;
+  padding: 12px;
+  border-radius: 4px;
+  margin-top: 15px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.result-box {
+  background-color: $result-bg;
+  border: 1px solid $result-border;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.result-item {
+  background-color: $result-item-bg;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #a0b0a0;
+  display: flex;
+  flex-direction: column;
+  span {
+    margin-bottom: 5px;
+  }
+  strong {
+    font-size: 1.6em;
+    color: #fff;
+  }
+  &.highlight {
+    background-color: $result-highlight;
+    border: 1px solid $primary;
+    strong {
+      color: #81c784;
+    }
+  }
+}
+
+.btn {
+  background-color: $primary;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  width: 100%;
+  margin-top: 10px;
+  font-weight: bold;
+  transition: background 0.2s;
+  &:hover {
+    background-color: $primary-hover;
+  }
+}
+
+.btn-add {
+  background-color: $secondary;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 13px;
+  &:hover {
+    background-color: $secondary-hover;
+  }
+}
+
+.btn-delete {
+  background-color: $danger;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  &:hover {
+    background-color: $danger-hover;
+  }
+}
+
+.subtitle {
+  font-size: 12px;
+  color: #888;
+  margin: 0 0 10px 0;
+}
+
+.action-box {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+// ==========================================
+// 🖨️ PDF生成用レイアウト
+// ==========================================
+#pdf-render-area {
+  display: none;
+}
+
+.pdf-template {
+  background-color: $bg-pdf;
+  color: $text-pdf;
+  font-family: "Times New Roman", Times, "Hiragino Mincho ProN", serif;
+  padding: 15px 25px;
+  box-sizing: border-box;
+  line-height: 1.6;
+  font-size: 12pt;
+  width: 680px; /* ★ここを750pxから680pxに縮小してフレームと一致させる */
+  margin: 0;
+
+  h1 {
+    color: $text-pdf;
+    font-size: 24pt;
+    font-weight: bold;
+    border: none;
+    margin: 0 0 2px 0;
+    padding: 0;
+    letter-spacing: 0.5px;
+  }
+
+  .pdf-subtitle {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 10pt;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: $text-pdf;
+    margin-bottom: 15px;
+    border-bottom: 2px solid $border-pdf;
+    padding-bottom: 3px;
+  }
+
+  .pdf-meta-table {
+    width: 100%;
+    margin-bottom: 20px;
+    border-collapse: collapse;
+    td {
+      border: 1px solid $border-pdf;
+      padding: 8px 12px;
+      vertical-align: top;
+      font-size: 11pt;
+    }
+    .label {
+      background-color: $bg-pdf-accent;
+      font-weight: bold;
+      width: 18%;
+    }
+    .value {
+      width: 32%;
+    }
+    .concept-value {
+      width: 82%;
+      white-space: pre-wrap;
+    }
+  }
+
+  .pdf-section-title {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 13pt;
+    font-weight: bold;
+    margin: 20px 0 10px 0;
+    border-bottom: 1px solid $border-pdf;
+    padding-bottom: 2px;
+  }
+
+  .pdf-formula-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0;
+    th,
+    td {
+      border: 1px solid $border-pdf;
+      padding: 8px 10px;
+      font-size: 10.5pt;
+    }
+    th {
+      background-color: $bg-pdf-accent;
+      font-weight: bold;
+      text-align: center;
+    }
+    .num {
+      text-align: right;
+      font-family: "Courier New", Courier, monospace;
+    }
+    .center {
+      text-align: center;
+    }
+    .total-row {
+      font-weight: bold;
+      background-color: $bg-pdf-accent;
+    }
+  }
+
+  .pdf-maceration-box {
+    margin-top: 20px;
+    .maceration-item {
+      margin-bottom: 20px;
+      .maceration-header {
+        font-weight: bold;
+        border-bottom: 1px solid #cccccc;
+        padding-bottom: 2px;
+        margin-bottom: 40px;
+        font-size: 11pt;
+      }
+    }
+  }
+}
+
+// ==========================================
+// 🌐 タブ切り替え・ナビゲーション用スタイル
+// ==========================================
+.tab-navigation {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid $border-dark;
+  padding-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.nav-btn {
+  background-color: $input-bg-dark;
+  color: $text-muted-dark;
+  border: 1px solid $input-border-dark;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: #252525;
+    color: $text-white;
+  }
+
+  &.active {
+    background-color: $secondary;
+    color: $text-white;
+    border-color: $secondary;
+    box-shadow: 0 0 8px rgba(33, 150, 243, 0.4);
+  }
+}
+
+// 部屋の表示・非表示の切り替えスイッチ
+.tab-content {
+  display: none; // 通常時は全員シャッターを閉じて隠す
+
+  &.active {
+    display: block; // activeクラスがついた部屋だけシャッターを開ける
+  }
+}

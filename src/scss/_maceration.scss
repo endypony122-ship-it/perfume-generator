@@ -1,0 +1,63 @@
+@use "variables" as *;
+
+// ==========================================
+// 📓 マセレーション（熟成ノート）専用スタイル
+// ==========================================
+
+.timeline-item {
+  border-left: 3px solid $secondary;
+  padding-left: 15px;
+  margin-bottom: 20px;
+  position: relative;
+  background-color: #1a1a1a;
+  padding: 15px;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+
+  &::before {
+    content: "●";
+    color: $secondary;
+    position: absolute;
+    left: -7px;
+    top: 12px;
+    font-size: 12px;
+    background-color: $bg-dark;
+    width: 12px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #333;
+  padding-bottom: 5px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.timeline-title {
+  font-weight: bold;
+  color: #fff;
+  font-size: 15px;
+}
+
+.timeline-tag {
+  background-color: #333;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.timeline-body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: $text-dark;
+  white-space: pre-wrap;
+}
