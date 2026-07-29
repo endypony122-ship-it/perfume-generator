@@ -2,22 +2,40 @@
 // Perfume Formula Generator v2 - main.js
 // ==========================================
 
+// ==========================================
+// Perfume Formula Generator v2 - main.js
+// ==========================================
+
 // 1. 素材マスタデータ（選択肢）
 const masterIngredients = [
+  // --- Top Notes ---
   { name: "ベルガモット（FCF）", defaultDilution: 100, defaultNote: "Top" },
   { name: "ブラックペッパー", defaultDilution: 100, defaultNote: "Top" },
+  { name: "マンダリン", defaultDilution: 100, defaultNote: "Top" },
+  { name: "ライム", defaultDilution: 100, defaultNote: "Top" },
+  { name: "カルダモン", defaultDilution: 100, defaultNote: "Top" },
+
+  // --- Middle Notes ---
   { name: "シダーウッド", defaultDilution: 100, defaultNote: "Middle" },
-  { name: "フランキンセンス", defaultDilution: 100, defaultNote: "Middle" },
-  { name: "ガイアックウッド", defaultDilution: 100, defaultNote: "Middle" },
   { name: "サンダルウッド", defaultDilution: 100, defaultNote: "Middle" },
+  { name: "フランキンセンス", defaultDilution: 100, defaultNote: "Middle" },
+  { name: "ゼラニウム", defaultDilution: 100, defaultNote: "Middle" },
+  { name: "ローズ・ダマスク", defaultDilution: 100, defaultNote: "Middle" },
   { name: "ジャスミン Abs.", defaultDilution: 25, defaultNote: "Middle" },
-  { name: "ティンバーシルク", defaultDilution: 100, defaultNote: "Base" },
-  { name: "イソ E スーパー", defaultDilution: 100, defaultNote: "Base" },
+  { name: "Hedione", defaultDilution: 100, defaultNote: "Middle" },
+
+  // --- Base Notes ---
   { name: "パチュリ", defaultDilution: 100, defaultNote: "Base" },
+  { name: "ベチバー", defaultDilution: 100, defaultNote: "Base" },
+  { name: "ガイアックウッド", defaultDilution: 100, defaultNote: "Base" },
   { name: "アンブレットシード", defaultDilution: 100, defaultNote: "Base" },
-  { name: "アンブロキサン", defaultDilution: 10, defaultNote: "Base" },
   { name: "ベンゾイン", defaultDilution: 100, defaultNote: "Base" },
-  { name: "カスタム（手入力）", defaultDilution: 100, defaultNote: "Middle" },
+  { name: "Iso E Super", defaultDilution: 100, defaultNote: "Base" },
+  { name: "Timbersilk", defaultDilution: 100, defaultNote: "Base" },
+  { name: "Ambroxan", defaultDilution: 10, defaultNote: "Base" }, // 10%希釈設定
+  { name: "Habanolide", defaultDilution: 100, defaultNote: "Base" },
+  { name: "Galaxolide", defaultDilution: 100, defaultNote: "Base" },
+  { name: "Ambrettolide", defaultDilution: 100, defaultNote: "Base" },
 ];
 
 // 初期データ
@@ -34,11 +52,11 @@ const defaultFormula = {
     { note: "Top", name: "ブラックペッパー", weight: 0.04, dilution: 100 },
     { note: "Middle", name: "シダーウッド", weight: 0.15, dilution: 100 },
     { note: "Middle", name: "フランキンセンス", weight: 0.08, dilution: 100 },
-    { note: "Middle", name: "ガイアックウッド", weight: 0.03, dilution: 100 },
-    { note: "Base", name: "ティンバーシルク", weight: 0.5, dilution: 100 },
+    { note: "Base", name: "ガイアックウッド", weight: 0.03, dilution: 100 },
+    { note: "Base", name: "Timbersilk", weight: 0.5, dilution: 100 },
     { note: "Base", name: "パチュリ", weight: 0.04, dilution: 100 },
     { note: "Base", name: "アンブレットシード", weight: 0.01, dilution: 100 },
-    { note: "Base", name: "アンブロキサン", weight: 0.25, dilution: 10 },
+    { note: "Base", name: "Ambroxan", weight: 0.25, dilution: 10 },
   ],
 };
 
@@ -279,7 +297,7 @@ function calculate() {
     addedEthanolOutput.toFixed(2);
   document.getElementById("resTotalEthanol").innerText =
     totalEthanol.toFixed(2);
-  document.getElementById("resTotalDry").innerText = totalDryWeight.toFixed(3);
+  document.getElementById("resTotalDry").innerText = totalDryWeight.toFixed(4); // ★小数点第4位まで表示
   document.getElementById("resTotalWeight").innerText =
     finalTotalWeight.toFixed(2);
   document.getElementById("resConcentration").innerText =
