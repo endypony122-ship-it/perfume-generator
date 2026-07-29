@@ -15,8 +15,8 @@ export default function middleware(request) {
     // ==========================================
     // 🔐 ここで好きなIDとパスワードを設定！
     // ==========================================
-    const myId = "lab"; // 👈 好きなIDに変更してください
-    const myPassword = "perfume"; // 👈 好きなパスワードに変更してください
+    const myId = "HaruFum"; // 👈 好きなIDに変更
+    const myPassword = "SetPass#1995"; // 👈 好きなパスワードに変更
 
     // IDとパスワードが一致したら、そのままサイトを表示する
     if (user === myId && password === myPassword) {
