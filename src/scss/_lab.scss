@@ -6,9 +6,10 @@
 body {
   background-color: $bg-dark;
   color: $text-dark;
+  // ★フォントのモダナイズ：Apple/欧州テック系基準へ変更
   font-family:
-    "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans",
-    sans-serif;
+    "SF Pro Display", "-apple-system", BlinkMacSystemFont, "Helvetica Neue",
+    Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
   margin: 0;
   padding: 20px;
 }
@@ -31,7 +32,7 @@ h2 {
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
 .input-group {
@@ -58,9 +59,11 @@ textarea {
   color: #fff;
   box-sizing: border-box;
   font-size: 14px;
+  // ★入力フィールドの数字フォントも等幅に統一して視認性向上
+  font-family: "JetBrains Mono", "Roboto Mono", monospace;
   &:focus {
     outline: none;
-    border-color: $primary;
+    border-color: $secondary;
   }
 }
 
@@ -89,7 +92,7 @@ table {
     text-align: left;
   }
   th {
-    background-color: #252525;
+    background-color: #16181d;
     color: $text-muted-dark;
     font-size: 13px;
   }
@@ -119,9 +122,12 @@ table {
   line-height: 1.5;
 }
 
+// ★新機能：計算結果カードのガラスモフィズム化
 .result-box {
   background-color: $result-bg;
   border: 1px solid $result-border;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .results-grid {
@@ -136,7 +142,7 @@ table {
   padding: 12px;
   border-radius: 6px;
   font-size: 13px;
-  color: #a0b0a0;
+  color: $text-muted-dark;
   display: flex;
   flex-direction: column;
   span {
@@ -145,19 +151,22 @@ table {
   strong {
     font-size: 1.6em;
     color: #fff;
+    // ★コンクリート調の美しさに映える等幅フォントを適用
+    font-family: "JetBrains Mono", "Roboto Mono", monospace;
+    letter-spacing: -0.5px;
   }
   &.highlight {
     background-color: $result-highlight;
-    border: 1px solid $primary;
+    border: 1px solid rgba(0, 230, 118, 0.2);
     strong {
-      color: #81c784;
+      color: $primary;
     }
   }
 }
 
 .btn {
-  background-color: $primary;
-  color: white;
+  background-color: $secondary;
+  color: #0d0e11;
   padding: 12px 20px;
   border: none;
   border-radius: 4px;
@@ -166,15 +175,15 @@ table {
   width: 100%;
   margin-top: 10px;
   font-weight: bold;
-  transition: background 0.2s;
+  transition: opacity 0.2s;
   &:hover {
-    background-color: $primary-hover;
+    opacity: 0.9;
   }
 }
 
 .btn-add {
   background-color: $secondary;
-  color: white;
+  color: #0d0e11;
   border: none;
   padding: 8px 14px;
   border-radius: 4px;
@@ -182,7 +191,7 @@ table {
   font-weight: bold;
   font-size: 13px;
   &:hover {
-    background-color: $secondary-hover;
+    opacity: 0.9;
   }
 }
 
@@ -201,7 +210,7 @@ table {
 
 .subtitle {
   font-size: 12px;
-  color: #888;
+  color: $text-muted-dark;
   margin: 0 0 10px 0;
 }
 
@@ -226,7 +235,7 @@ table {
   box-sizing: border-box;
   line-height: 1.6;
   font-size: 12pt;
-  width: 680px; /* ★ここを750pxから680pxに縮小してフレームと一致させる */
+  width: 680px;
   margin: 0;
 
   h1 {
@@ -356,17 +365,161 @@ table {
 
   &.active {
     background-color: $secondary;
-    color: $text-white;
+    color: #0d0e11;
     border-color: $secondary;
-    box-shadow: 0 0 8px rgba(33, 150, 243, 0.4);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
   }
 }
 
-// 部屋の表示・非表示の切り替えスイッチ
 .tab-content {
-  display: none; // 通常時は全員シャッターを閉じて隠す
-
+  display: none;
   &.active {
-    display: block; // activeクラスがついた部屋だけシャッターを開ける
+    display: block;
   }
+}
+
+// ==========================================
+// 🌳 遺伝子ツリーモーダル専用スタイル
+// ==========================================
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(13, 14, 17, 0.85); // ラボ漆黒背景を活かした遮断膜
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(6px);
+}
+
+.modal-content {
+  width: 90%;
+  max-width: 600px;
+  max-height: 75vh;
+  overflow-y: auto;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.tree-container {
+  padding: 10px 5px;
+  color: $text-dark;
+  font-family: "JetBrains Mono", "Roboto Mono", monospace;
+  font-size: 14px;
+
+  ul {
+    list-style-type: none;
+    padding-left: 28px;
+    position: relative;
+    margin: 0;
+
+    // 家系図の「縦のつながり線」
+    &::before {
+      content: "";
+      position: absolute;
+      left: 7px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background-color: $border-dark;
+    }
+  }
+
+  li {
+    margin: 0;
+    padding: 6px 0 6px 15px;
+    position: relative;
+
+    // 家系図の「横の枝分かれ線」
+    &::before {
+      content: "";
+      position: absolute;
+      left: -21px;
+      top: 20px;
+      width: 15px;
+      height: 1px;
+      background-color: $border-dark;
+    }
+
+    &:last-child::before {
+      height: 1px;
+    }
+  }
+
+  // 根源のルート要素（始祖）の余計な線を消去
+  & > ul {
+    padding-left: 0;
+    &::before {
+      display: none;
+    }
+    & > li {
+      padding-left: 0;
+      &::before {
+        display: none;
+      }
+    }
+  }
+
+  .tree-node {
+    padding: 4px 10px;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid $border-dark;
+    display: inline-block;
+    color: $text-muted-dark;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+      color: $text-white;
+      border-color: $text-muted-dark;
+    }
+
+    // 現在開いているレシピのネオンハイライト表示
+    &.current-active {
+      background-color: rgba(0, 229, 255, 0.06);
+      border: 1px solid $secondary;
+      color: $secondary;
+      font-weight: bold;
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+    }
+  }
+}
+
+// ==========================================
+// ⚡ アコードマクロ＆タイマー導入に伴うUI崩れ補正
+// ==========================================
+.table-header {
+  flex-wrap: wrap; // 画面が狭くなっても安全に折り返す保険
+  gap: 15px;
+
+  h2 {
+    white-space: nowrap; // タイトルが途中で折れるのを防御
+  }
+
+  // 操作ボタン群が入っている右側のコンテナ
+  div {
+    flex-wrap: wrap;
+
+    .btn-add {
+      white-space: nowrap; // ボタン内の文字が縦に潰れるのを絶対防御 ★超重要
+      flex-shrink: 0; // 周りに押されても絶対に縮まない鋼の意志 ★超重要
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px; // ボタンの高さを美しく統一
+    }
+  }
+}
+
+// プルダウンがアコード名の長さで横に爆発するのを防ぐ ★超重要
+#accordSelect {
+  max-width: 220px;
+  text-overflow: ellipsis; // 入り切らない長い文字は自動で「...」にする大人の処置
+  min-height: 34px;
 }

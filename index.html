@@ -29,6 +29,11 @@
         </button>
       </nav>
 
+      <!-- ★追加：熟成カウントダウン・アラート表示バナー（通知がある時だけ自動出現） -->
+      <div id="macerationAlertBanner" class="card" style="display: none; border: 1px solid #ffb300; background-color: #2a1f11; color: #ffe082; padding: 15px; margin-bottom: 20px;">
+        <!-- ここに「本日テイスティングを迎えたレシピ」が動的にリストアップされます -->
+      </div>
+
       <!-- ======================================================== -->
       <!-- 📄 部屋1: フォーミュラ・ラボ（現在のメイン機能） -->
       <!-- ======================================================== -->
@@ -65,6 +70,24 @@
               style="width: auto; margin-top: 0; padding: 10px 15px"
             >
               📂 復元
+            </button>
+            <!-- ★追加：系譜管理のための派生(Clone)ボタン -->
+            <button
+              type="button"
+              onclick="window.cloneSelectedRecipe()"
+              class="btn"
+              style="background-color: #00bcd4; width: auto; margin-top: 0; padding: 10px 15px; color: #fff;"
+            >
+              🧬 派生(Clone)
+            </button>
+            <!-- ★追加：遺伝子ツリーポップアップ起動ボタン -->
+            <button
+              type="button"
+              onclick="window.showRecipeTree()"
+              class="btn"
+              style="background-color: #9c27b0; width: auto; margin-top: 0; padding: 10px 15px; color: #fff;"
+            >
+              🌳 系譜図
             </button>
             <button
               type="button"
@@ -125,8 +148,8 @@
           <div class="input-group">
             <label>コンセプト・目標:</label>
             <textarea id="concept" rows="3">
-甘さを極限まで排除し、シダー、インセンス、ペッパーがパリッと知的に香る硬質なドライウッド。</textarea
-            >
+              甘さを極限まで排除し、シダー、インセンス、ペッパーがパリッと知的に香る硬質なドライウッド。
+            </textarea>
           </div>
         </div>
 
@@ -170,16 +193,34 @@
 
           <!-- エラー・警告文表示エリア（通常時は非表示） -->
           <div id="warningBox" class="warning-box" style="display: none"></div>
+          
+          <!-- ★追加：IFRA安全基準警告エリア（危険検知時のみ自動出現） -->
+          <div id="ifraWarningBox" class="warning-box" style="display: none; background-color: #3a1c1c; border: 1px solid #ff5252; color: #ff9e9e; margin-top: 15px;"></div>
         </div>
 
         <!-- 香料リスト（動的追加・マスタ選択テーブル） -->
         <div class="section card">
           <div class="table-header">
-            <h2>3. 香料データ入力</h2>
-            <button type="button" onclick="window.addNewRow()" class="btn-add">
-              ＋ 香料を追加
-            </button>
-          </div>
+              <h2>3. 香料データ入力</h2>
+              <!-- ★追加：嗅覚タイマー表示UIと起動ボタン -->
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <!-- ★追加：マイ・アコード選択マクロ UI -->
+                <div style="display: flex; gap: 5px; align-items: center; border-right: 1px solid #2c313a; padding-right: 10px; margin-right: 5px;">
+                  <select id="accordSelect" style="width: auto; padding: 6px 10px; font-size: 13px; background-color: #22252a; border: 1px solid #3f4654; color: #fff; border-radius: 4px;">
+                    <option value="">-- アコードを選択 --</option>
+                    <option value="woody_sea">🌊 いつものモレキュール海 (イソE 5 : ティンバー 1)</option>
+                    <option value="citrus_skeleton">🍋 シトラスコロン骨格 (ベルガモット 3 : マンダリン 1)</option>
+                    <option value="cathedral_incense">⛪ 大聖堂インセンスベース (フランキンセンス 2 : シダー 2 : パチュリ 1)</option>
+                  </select>
+                  <button type="button" onclick="window.insertAccord()" class="btn-add" style="background-color: #00e5ff; color: #0d0e11;">⚡ 挿入</button>
+                </div>
+                <span id="olfactoryTimerDisplay" style="display: none; background-color: #221216; color: #ff5252; border: 1px solid rgba(255, 82, 82, 0.3); padding: 6px 12px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: bold; box-shadow: 0 0 8px rgba(255, 82, 82, 0.2);">⏱️ 飽和まで: --:--</span>
+                <button type="button" id="btnStartOlfTimer" onclick="window.startOlfactoryTimer()" class="btn-add" style="background-color: #9c27b0; color: #fff;">⏱️ 調香開始</button>
+                <button type="button" onclick="window.addNewRow()" class="btn-add">
+                  ＋ 香料を追加
+                </button>
+              </div>
+            </div>
           <p class="subtitle">
             ※素材マスタから選択するか、カスタムで自由に入力してください。
           </p>
@@ -225,6 +266,12 @@
               <span>想定原価（香料＋溶剤）</span>
               <strong id="resTotalCost">0</strong> 円
             </div>
+            <!-- ★追加：ガンマ体濃度シミュレーター表示 -->
+            <div class="result-item" style="background-color: #251b2a; border: 1px solid #7b1fa2;">
+              <span style="color: #ce93d8;">🧬 ウッディベース ガンマ体純度</span>
+              <strong id="resGammaRatio" style="color: #e1bee7;">0.0</strong> %
+              <span id="resGammaStatus" style="font-size: 11px; color: #ba68c8; margin-top: 3px;">-- ケミカル未検出 --</span>
+            </div>
             <!-- ★追加ここまで -->
             <div class="result-item highlight">
               <span>実質賦香率</span>
@@ -241,6 +288,17 @@
           </p>
           <div style="width: 100%; max-width: 350px; margin: 0 auto">
             <canvas id="pyramidChart"></canvas>
+          </div>
+        </div>
+
+        <!-- ★追加：バーチャル・ドライダウン（揮発タイムライン予測） -->
+        <div class="section card">
+          <h2>📈 バーチャル・ドライダウン (揮発タイムライン予測)</h2>
+          <p class="subtitle">
+            肌にのせてから時間経過（0〜6時間後）に伴う各ノートの「残香比率」の変化予測です。
+          </p>
+          <div style="width: 100%; max-width: 500px; margin: 0 auto">
+            <canvas id="drydownChart"></canvas>
           </div>
         </div>
 
@@ -291,9 +349,6 @@
       </div>
 
       <!-- ======================================================== -->
-      <!-- 📦 部屋2: インベントリ（香料在庫・マスタ管理）※新規 -->
-      <!-- ======================================================== -->
-      <!-- ======================================================== -->
       <!-- 📦 部屋2: インベントリ（香料在庫・マスタ管理） -->
       <!-- ======================================================== -->
       <div id="view-inventory" class="tab-content">
@@ -333,12 +388,58 @@
                 />
               </div>
               <div class="input-group">
+                <label>ガンマ体含有率 (%):</label>
+                <input
+                  type="number"
+                  id="invGamma"
+                  value="0"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  required
+                />
+              </div>
+              <div class="input-group">
                 <label>1gあたりの単価 (円):</label>
                 <input type="number" id="invPrice" value="0" min="0" required />
               </div>
             </div>
             <button type="submit" class="btn" style="margin-top: 10px">
               💾 在庫マスタに登録・保存
+            </button>
+          </form>
+        </div>
+
+        <!-- ★追加：既存香料へのロット・ヴィンテージ登録フォーム -->
+        <div class="section card" style="border: 1px solid #9c27b0; background-color: #1a1322;">
+          <h2>➕ 既存香料にロット・ヴィンテージを追加</h2>
+          <form id="lotForm" onsubmit="window.addLotToIngredient(event)">
+            <div class="inventory-form-grid">
+              <div class="input-group">
+                <label>対象の香料:</label>
+                <select id="lotTargetIngredient" required>
+                  <!-- 在庫一覧から動的に選択肢が入ります -->
+                </select>
+              </div>
+              <div class="input-group">
+                <label>ロット番号 / ヴィンテージ識別名:</label>
+                <input type="text" id="lotNumber" placeholder="例: SAN-2026A" required />
+              </div>
+              <div class="input-group">
+                <label>購入日:</label>
+                <input type="date" id="lotPurchaseDate" />
+              </div>
+              <div class="input-group">
+                <label>熟成期間 (ヶ月):</label>
+                <input type="number" id="lotAging" value="0" min="0" required />
+              </div>
+              <div class="input-group">
+                <label>このロットの1g単価 (円):</label>
+                <input type="number" id="lotPrice" value="0" min="0" required />
+              </div>
+            </div>
+            <button type="submit" class="btn" style="background-color: #9c27b0; color: #fff; margin-top: 10px;">
+              🔮 ロット情報をマスタに追加保存
             </button>
           </form>
         </div>
@@ -545,7 +646,18 @@
         </div>
       </div>
     </div>
-
+    <!-- ★追加：遺伝子ツリービュー用のポップアップモーダル -->
+    <div id="recipeTreeModal" class="modal-overlay" style="display: none;">
+      <div class="modal-content result-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2c313a; padding-bottom: 10px; margin-bottom: 15px;">
+          <h2 style="margin: 0; border: none; color: #fff;">🌳 レシピ遺伝子ツリー (進化の系譜)</h2>
+          <button type="button" onclick="window.closeRecipeTree()" class="btn-delete" style="padding: 5px 12px; font-weight: bold;">✕ 閉じる</button>
+        </div>
+        <div id="recipeTreeContainer" class="tree-container">
+          <!-- ここに動的に家系図ツリーが描画されます -->
+        </div>
+      </div>
+    </div>
     <!-- 5. 読み込み先をsrc/main.jsへ変更 -->
     <script type="module" src="./src/main.js"></script>
   </body>

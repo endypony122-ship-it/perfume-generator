@@ -1,26 +1,25 @@
 // ==========================================
-// 🎨 共通カラー変数 (ダークテーマ用)
+// 🎨 共通カラー変数 (インダストリアル・サイバーラボ用)
 // ==========================================
-$bg-dark: #121212;
-$card-dark: #1e1e1e;
-$input-bg-dark: #2a2a2a;
-$border-dark: #333;
-$input-border-dark: #444;
-$text-dark: #e0e0e0;
+$bg-dark: #0d0e11; // より深く、少し青みのある漆黒
+$card-dark: #16181d; // カード背景も漆黒に合わせて微調整
+$input-bg-dark: #22252a;
+$border-dark: #2c313a;
+$input-border-dark: #3f4654;
+$text-dark: #d8dee9;
 $text-white: #ffffff;
-$text-muted-dark: #a0a0a0;
+$text-muted-dark: #818b9d;
 
-$primary: #4caf50;
-$primary-hover: #45a049;
-$secondary: #2196f3;
-$secondary-hover: #1e88e5;
-$danger: #f44336;
-$danger-hover: #d32f2f;
+$primary: #00e676; // 鈍く光る実験機器のLEDグリーン
+$secondary: #00e5ff; // サイバー感のあるシアン
+$danger: #ff5252;
+$danger-hover: #ff1744;
 
-$result-bg: #1b2a1c;
-$result-border: #2e5c30;
-$result-item-bg: #243525;
-$result-highlight: #2e5c30;
+// ガラスモフィズム（半透明）レイヤー用
+$result-bg: rgba(22, 24, 29, 0.75);
+$result-border: rgba(255, 255, 255, 0.05);
+$result-item-bg: rgba(255, 255, 255, 0.02);
+$result-highlight: rgba(0, 230, 118, 0.08);
 
 // --- カラー変数 (PDF / ラボシート印刷用) ---
 $bg-pdf: #ffffff;

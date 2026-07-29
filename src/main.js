@@ -12,6 +12,8 @@ const defaultMasterIngredients = [
     defaultDilution: 100,
     defaultNote: "Top",
     price: 278,
+    maxSafeRatio: 0.4, // ★追加: 溶液全体における限界濃度(%)
+    isPhototoxic: true, // ★追加: 光毒性フラグ
   },
   {
     name: "ブラックペッパー",
@@ -52,12 +54,14 @@ const defaultMasterIngredients = [
     defaultDilution: 100,
     defaultNote: "Middle",
     price: 12791,
+    maxSafeRatio: 0.02, // ★追加: メチルオイゲノール規制に伴う限界濃度(%)
   },
   {
     name: "ジャスミン Abs.",
     defaultDilution: 25,
     defaultNote: "Middle",
     price: 529,
+    maxSafeRatio: 0.6, // ★追加：IFRA上限 0.6%
   },
   { name: "Hedione", defaultDilution: 100, defaultNote: "Middle", price: 50 },
   // --- Base Notes ---
@@ -80,13 +84,54 @@ const defaultMasterIngredients = [
     defaultDilution: 25,
     defaultNote: "Base",
     price: 212,
+    maxSafeRatio: 1.9, // ★追加：IFRA上限 1.9%
   },
-  { name: "Iso E Super", defaultDilution: 100, defaultNote: "Base", price: 48 },
-  { name: "Timbersilk", defaultDilution: 100, defaultNote: "Base", price: 48 },
-  { name: "Sylvamber", defaultDilution: 100, defaultNote: "Base", price: 79 },
-  { name: "Ambroxan", defaultDilution: 10, defaultNote: "Base", price: 440 },
-  { name: "Habanolide", defaultDilution: 100, defaultNote: "Base", price: 74 },
-  { name: "Galaxolide", defaultDilution: 100, defaultNote: "Base", price: 66 },
+  {
+    name: "Iso E Super",
+    defaultDilution: 100,
+    defaultNote: "Base",
+    price: 48,
+    gammaRatio: 8.0,
+    isOTNE: true,
+    olfactoryFatigue: "High", // ★追加
+  },
+  {
+    name: "Timbersilk",
+    defaultDilution: 100,
+    defaultNote: "Base",
+    price: 48,
+    gammaRatio: 15.0,
+    isOTNE: true,
+    olfactoryFatigue: "High", // ★追加
+  },
+  {
+    name: "Sylvamber",
+    defaultDilution: 100,
+    defaultNote: "Base",
+    price: 79,
+    gammaRatio: 22.0,
+    isOTNE: true,
+    olfactoryFatigue: "High", // ★追加
+  },
+  {
+    name: "Ambroxan",
+    defaultDilution: 10,
+    defaultNote: "Base",
+    price: 440,
+    olfactoryFatigue: "High", // ★追加
+  },
+  {
+    name: "Habanolide",
+    defaultDilution: 100,
+    defaultNote: "Base",
+    price: 74,
+  },
+  {
+    name: "Galaxolide",
+    defaultDilution: 100,
+    defaultNote: "Base",
+    price: 66,
+  },
   {
     name: "Ambrettolide",
     defaultDilution: 100,
@@ -135,6 +180,49 @@ const savedMaster = localStorage.getItem("perfume_master_ingredients");
 if (savedMaster) {
   try {
     masterIngredients = JSON.parse(savedMaster);
+
+    // 🧬【自動パッチ】既存のセーブデータに新しいパラメータがない場合、初期マスタから自動補完
+    masterIngredients.forEach((ing) => {
+      const defaultIng = defaultMasterIngredients.find(
+        (d) => d.name === ing.name,
+      );
+      if (defaultIng) {
+        if (defaultIng.gammaRatio !== undefined)
+          ing.gammaRatio = defaultIng.gammaRatio;
+        if (defaultIng.maxSafeRatio !== undefined)
+          ing.maxSafeRatio = defaultIng.maxSafeRatio;
+        if (defaultIng.isPhototoxic !== undefined)
+          ing.isPhototoxic = defaultIng.isPhototoxic;
+        if (defaultIng.isOTNE !== undefined) ing.isOTNE = defaultIng.isOTNE; // ★追加：OTNEフラグの引き継ぎ
+      }
+
+      // ★追加：揮発速度の自動補完（カスタム香料でもノート分類から自動インテリジェンス割り当て）
+      if (ing.evaporationRate === undefined) {
+        const currentNote = ing.defaultNote || ing.note;
+        if (currentNote === "Top") ing.evaporationRate = 10.0;
+        else if (currentNote === "Middle") ing.evaporationRate = 3.0;
+        else ing.evaporationRate = 0.5;
+      }
+      // ★追加：嗅覚疲労度の自動補完（Baseノートや未設定の素材にインテリジェンス割り当て）
+      if (ing.olfactoryFatigue === undefined) {
+        const defaultIng = defaultMasterIngredients.find(
+          (d) => d.name === ing.name,
+        );
+        if (defaultIng && defaultIng.olfactoryFatigue !== undefined) {
+          ing.olfactoryFatigue = defaultIng.olfactoryFatigue;
+        } else {
+          // マスタにないカスタム素材などはノートで自動判定
+          const currentNote = ing.defaultNote || ing.note;
+          ing.olfactoryFatigue =
+            currentNote === "Base"
+              ? "High"
+              : currentNote === "Middle"
+                ? "Medium"
+                : "Low";
+        }
+      }
+      if (ing.lots === undefined) ing.lots = []; // ★追加：ロット格納用の子配列を保証
+    });
   } catch (e) {
     masterIngredients = [...defaultMasterIngredients];
   }
@@ -186,6 +274,7 @@ window.addEventListener("DOMContentLoaded", () => {
   loadData();
   setupEventListeners();
   calculate();
+  checkMacerationAlerts(); // ★追加：起動時に熟成バナーを自動チェック！
 });
 
 function loadData() {
@@ -263,9 +352,22 @@ function createRowElement(ing, index) {
   let masterOptions = "";
   let isCustom = true;
   masterIngredients.forEach((master) => {
-    const selected = ing.name === master.name ? "selected" : "";
-    if (ing.name === master.name) isCustom = false;
-    masterOptions += `<option value="${master.name}" ${selected}>${master.name}</option>`;
+    if (master.name === "カスタム（手入力）") return;
+
+    // 1. デフォルト（ロット指定なし）の選択肢
+    const isSelectedDefault = ing.name === master.name;
+    if (isSelectedDefault) isCustom = false;
+    masterOptions += `<option value="${master.name}" ${isSelectedDefault ? "selected" : ""}>${master.name}</option>`;
+
+    // 2. この香料に紐づくロット・ヴィンテージをすべて選択肢として子展開！
+    if (master.lots && master.lots.length > 0) {
+      master.lots.forEach((lot) => {
+        const lotValue = `${master.name}::${lot.lotNumber}`;
+        const isSelectedLot = ing.name === lotValue;
+        if (isSelectedLot) isCustom = false;
+        masterOptions += `<option value="${lotValue}" ${isSelectedLot ? "selected" : ""}>${master.name} [ロット: ${lot.lotNumber} / 熟成:${lot.agingMonths}ヶ月]</option>`;
+      });
+    }
   });
 
   masterOptions += `<option value="カスタム（手入力）" ${isCustom ? "selected" : ""}>カスタム（手入力）</option>`;
@@ -291,15 +393,19 @@ function createRowElement(ing, index) {
 
 window.onIngredientSelectChange = function (selectElement) {
   const tr = selectElement.closest("tr");
-  const selectedName = selectElement.value;
+  const selectedValue = selectElement.value;
   const customInput = tr.querySelector(".custom-name-input");
 
-  if (selectedName === "カスタム（手入力）") {
+  if (selectedValue === "カスタム（手入力）") {
     customInput.style.display = "block";
     customInput.value = "";
   } else {
     customInput.style.display = "none";
-    const master = masterIngredients.find((m) => m.name === selectedName);
+    // ★ロット識別キー(::)が含まれている場合は、前半の本体名だけを抽出してマスタ検索
+    const searchName = selectedValue.includes("::")
+      ? selectedValue.split("::")[0]
+      : selectedValue;
+    const master = masterIngredients.find((m) => m.name === searchName);
     if (master) {
       tr.querySelector(".row-note").value = master.defaultNote;
       tr.querySelector(".dilution-input").value = master.defaultDilution;
@@ -349,7 +455,7 @@ function calculate() {
   let totalDryWeight = 0;
   let totalDiluentWeight = 0;
 
-  // ★追加：コスト集計用の箱
+  // ★コスト集計用の箱
   let totalCost = 0;
   const ETHANOL_PRICE_PER_GRAM = 3; // 無水エタノール1gの単価（約3円と仮定）
 
@@ -357,6 +463,10 @@ function calculate() {
   let topTotal = 0;
   let middleTotal = 0;
   let baseTotal = 0;
+
+  // 🧬【新機能追記】ガンマ体シミュレーター用の集計箱
+  let totalWoodyDryWeight = 0; // ガンマ体を持つウッディ素材のドライ総重量
+  let totalGammaScore = 0; // ガンマ体スコアの蓄積
 
   const rows = document.querySelectorAll("#ingredientsBody tr");
   const updatedIngredients = [];
@@ -375,19 +485,45 @@ function calculate() {
     const dryWeight = weight * (dilution / 100);
     const diluentWeight = weight - dryWeight;
 
-    // ★追加：マスタから単価を探してコストを計算（カスタム等で見つからなければ0円）
-    const masterInfo = masterIngredients.find((m) => m.name === name);
-    const unitPrice = masterInfo ? masterInfo.price : 0;
+    // ★改善：ロット識別キーを分離し、マスタデータとロット固有データを個別に抽出
+    let searchName = name;
+    let lotInfo = null;
+    if (name.includes("::")) {
+      const parts = name.split("::");
+      searchName = parts[0];
+      const lotNum = parts[1];
+      const master = masterIngredients.find((m) => m.name === searchName);
+      if (master && master.lots) {
+        lotInfo = master.lots.find((l) => l.lotNumber === lotNum);
+      }
+    }
+
+    // 重複宣言と不正なing参照を排除し、安全にマスタ情報を取得
+    const masterInfo = masterIngredients.find((m) => m.name === searchName);
+
+    // ロット固有の単価があればそれを採用、なければ通常のデフォルト単価を採用
+    let unitPrice = masterInfo ? masterInfo.price : 0;
+    if (lotInfo && lotInfo.price !== undefined) {
+      unitPrice = lotInfo.price;
+    }
+
+    const gammaRatio =
+      masterInfo && masterInfo.gammaRatio ? masterInfo.gammaRatio : 0;
+
     totalCost += weight * unitPrice; // 実測重量 × 1g単価
 
-    row.querySelector(".dry-weight-span").innerText = dryWeight.toFixed(3);
+    // 🧬【新機能追記】ウッディケミカル（ガンマ体を持つ素材）が処方に含まれていれば足し算
+    if (gammaRatio > 0) {
+      totalWoodyDryWeight += dryWeight;
+      totalGammaScore += dryWeight * gammaRatio;
+    }
 
     row.querySelector(".dry-weight-span").innerText = dryWeight.toFixed(3);
 
     totalDryWeight += dryWeight;
     totalDiluentWeight += diluentWeight;
 
-    // ★グラフ用：ノートに合わせて個別の箱に足し算
+    // グラフ用：ノートに合わせて個別の箱に足し算（重複タイポを美しく修正）
     if (note === "Top") topTotal += dryWeight;
     else if (note === "Middle") middleTotal += dryWeight;
     else if (note === "Base") baseTotal += dryWeight;
@@ -441,13 +577,97 @@ function calculate() {
   document.getElementById("resTotalWeight").innerText =
     finalTotalWeight.toFixed(2);
 
-  // ★追加：エタノールの原価を足して、四捨五入して画面に表示
+  // エタノールの原価を足して、四捨五入して画面に表示
   totalCost += addedEthanolOutput * ETHANOL_PRICE_PER_GRAM;
   document.getElementById("resTotalCost").innerText =
     Math.round(totalCost).toLocaleString();
 
   document.getElementById("resConcentration").innerText =
     finalConcentration.toFixed(1);
+
+  // ⚠️【新機能追記】IFRAアレルゲン＆光毒性セーフティ・チェック
+  let ifraWarnings = [];
+  let totalOTNEWetWeight = 0; // ★追加：OTNE系の合計実測重量を溜める箱
+
+  updatedIngredients.forEach((ing) => {
+    const searchName = ing.name.includes("::")
+      ? ing.name.split("::")[0]
+      : ing.name;
+    const masterInfo = masterIngredients.find((m) => m.name === searchName);
+
+    if (masterInfo) {
+      // ★追加：もし登録されている素材がOTNE系だったら、実測重量を合算
+      if (masterInfo.isOTNE) {
+        totalOTNEWetWeight += ing.wetWeight;
+      }
+
+      if (masterInfo.maxSafeRatio !== undefined) {
+        // 完成総重量に対する、この香料の生の wet 重量比率(%)を算出
+        const actualRatioInSolution =
+          finalTotalWeight > 0 ? (ing.wetWeight / finalTotalWeight) * 100 : 0;
+
+        // 安全基準値を超えていた場合、警告メッセージを生成
+        if (actualRatioInSolution > masterInfo.maxSafeRatio) {
+          let msg = `⚠️ <strong>IFRA基準超越</strong>: 【${searchName}】の製品内濃度（${actualRatioInSolution.toFixed(2)}%）が安全限界値（${masterInfo.maxSafeRatio}%）を超えています。`;
+          if (masterInfo.isPhototoxic) {
+            msg += ` 日中の使用により光毒性（紫外線による重度の皮膚トラブル）のリスクがあります。`;
+          } else {
+            msg += ` 感作性（アレルギー反応）を引き起こす恐れがあります。`;
+          }
+          ifraWarnings.push(msg);
+        }
+      }
+    }
+  });
+
+  // ★追加：OTNE系の合計濃度チェック（製品全体に対して20%を超えたら警告）
+  const actualOTNERatio =
+    finalTotalWeight > 0 ? (totalOTNEWetWeight / finalTotalWeight) * 100 : 0;
+  if (actualOTNERatio > 20.0) {
+    ifraWarnings.push(
+      `⚠️ <strong>IFRA基準超越</strong>: 【OTNE系（ウッディケミカル）】の合計製品内濃度（${actualOTNERatio.toFixed(2)}%）が安全限界値（20.0%）を超えています。肌への感作性リスクが高まります。`,
+    );
+  }
+
+  // 警告ボックスへの表示反映
+  const ifraBox = document.getElementById("ifraWarningBox");
+  if (ifraBox) {
+    if (ifraWarnings.length > 0) {
+      ifraBox.innerHTML = ifraWarnings
+        .map(
+          (w) => `<div style="margin-bottom: 6px; font-size: 13px;">${w}</div>`,
+        )
+        .join("");
+      ifraBox.style.display = "block";
+    } else {
+      ifraBox.style.display = "none";
+    }
+  }
+
+  // 🧬【新機能追記】平均ガンマ体濃度の算出と計算結果エリアへのリアルタイム描画
+  const avgGammaRatio =
+    totalWoodyDryWeight > 0 ? totalGammaScore / totalWoodyDryWeight : 0;
+
+  // HTML上の要素が存在することを確認して値を代入
+  const gammaRatioEl = document.getElementById("resGammaRatio");
+  const gammaStatusEl = document.getElementById("resGammaStatus");
+
+  if (gammaRatioEl && gammaStatusEl) {
+    gammaRatioEl.innerText = avgGammaRatio.toFixed(1);
+
+    if (totalWoodyDryWeight === 0) {
+      gammaStatusEl.innerText = "-- ウッディケミカル未検出 --";
+    } else if (avgGammaRatio >= 20.0) {
+      gammaStatusEl.innerText =
+        "✨ 超ハイパー・モレキュール領域！ (Molecule 01 超え)";
+    } else if (avgGammaRatio >= 15.0) {
+      gammaStatusEl.innerText = "🔥 本家同等：比類なきウッディの拡散性";
+    } else if (avgGammaRatio >= 10.0) {
+      gammaStatusEl.innerText = "🧪 標準的なイソEスーパー・コンプレックス";
+    } else {
+      gammaStatusEl.innerText = "🌱 マイルドなウッディ残香レイヤー";
+    }
+  }
 
   generateSheetText(
     updatedIngredients,
@@ -457,9 +677,14 @@ function calculate() {
     finalTotalWeight,
   );
 
-  // ★グラフの表示を更新
+  // グラフの表示を更新
   if (typeof window.updatePyramidChart === "function") {
     window.updatePyramidChart(topTotal, middleTotal, baseTotal);
+  }
+
+  // ★追加：バーチャル・ドライダウン（経時揮発）グラフをリアルタイム更新！
+  if (typeof window.updateDrydownChart === "function") {
+    window.updateDrydownChart(updatedIngredients);
   }
 }
 
@@ -484,7 +709,13 @@ function generateSheetText(
       filtered.forEach((ing) => {
         const dilutionStr =
           ing.dilution < 100 ? ` (${ing.dilution}%溶液)` : ` (原液)`;
-        text += `  - ${ing.name}${dilutionStr}： ${ing.wetWeight.toFixed(3)}g\n`;
+
+        // ★暗号（::）が含まれている場合は、「香料名 (ロット: ロット番号)」の綺麗な形式に整形！
+        const displayName = ing.name.includes("::")
+          ? `${ing.name.split("::")[0]} (ロット: ${ing.name.split("::")[1]})`
+          : ing.name;
+
+        text += `  - ${displayName}${dilutionStr}： ${ing.wetWeight.toFixed(3)}g\n`;
       });
     }
   });
@@ -562,9 +793,14 @@ window.generatePDF = function () {
     else if (ing.note === "Middle") middleTotal += myDry;
     else if (ing.note === "Base") baseTotal += myDry;
 
+    // ★PDF出力時も暗号（::）を綺麗な名前に分解して整形！
+    const displayName = ing.name.includes("::")
+      ? `${ing.name.split("::")[0]} (ロット: ${ing.name.split("::")[1]})`
+      : ing.name;
+
     tr.innerHTML = `
       <td class="center">${ing.dilution === 100 ? "原液" : "希釈 " + ing.dilution + "%"}</td>
-      <td style="font-weight: bold;">${ing.name}</td>
+      <td style="font-weight: bold;">${displayName}</td>
       <td class="num">${pureRatio}%</td>
       <td class="num">${ing.weight.toFixed(3)}g</td>
       <td class="num">${myDry.toFixed(4)}g</td>
@@ -621,7 +857,7 @@ window.generatePDF = function () {
     pdfGraphImg.src = mainChartCanvas.toDataURL("image/png");
   }
 
-  // 4. 熟成ログの自動流し込み（文字サイズも拡大）
+  // 4. 熟成ログの自動流し込み
   const pdfMacArea = document.getElementById("pdfMacerationLogArea");
   pdfMacArea.innerHTML = "";
 
@@ -660,7 +896,6 @@ window.generatePDF = function () {
         <div style="font-weight: bold; font-size: 11pt; color: #111;">
           ■ ${log.days} <span style="font-size: 9pt; color: #555; font-weight: normal; margin-left: 10px;">(記録日: ${logDate})</span>
         </div>
-        <!-- ★メモ本体の文字サイズを 13pt にし、色を真っ黒(#000)にして読みやすく！ -->
         <div style="font-size: 13pt; color: #000; margin-top: 8px; white-space: pre-wrap; padding-left: 15px; line-height: 1.8;">${log.memo}</div>
       `;
       pdfMacArea.appendChild(div);
@@ -704,14 +939,12 @@ window.generatePDF = function () {
 // 🌟 新機能：⚖️ ワンクリック・スケールアップ
 // ==========================================
 window.scaleUpFormula = function () {
-  // 1. 現在の総重量と、目標の総重量を取得
   const currentTotalStr = document.getElementById("resTotalWeight").innerText;
   const currentTotal = parseFloat(currentTotalStr);
   const targetTotal = parseFloat(
     document.getElementById("targetScaleWeight").value,
   );
 
-  // エラーチェック
   if (isNaN(targetTotal) || targetTotal <= 0) {
     alert("目標の重量を正しく入力してください。");
     return;
@@ -721,31 +954,23 @@ window.scaleUpFormula = function () {
     return;
   }
 
-  // 2. 変換倍率（比率）を計算
   const ratio = targetTotal / currentTotal;
 
-  // 3. 各香料の重量を一括で掛け算して更新
   const rows = document.querySelectorAll("#ingredientsBody tr");
   rows.forEach((row) => {
     const weightInput = row.querySelector(".weight-input");
     const currentWeight = parseFloat(weightInput.value) || 0;
-    // 小数点第3位まで計算して入力欄にセット
     weightInput.value = (currentWeight * ratio).toFixed(3);
   });
 
-  // 4. 手動エタノールモードの場合は、エタノール量もスケールアップ
   const solventMode = document.getElementById("solventMode").value;
   if (solventMode === "manual") {
     const ethanolInput = document.getElementById("addedEthanol");
     const currentEthanol = parseFloat(ethanolInput.value) || 0;
     ethanolInput.value = (currentEthanol * ratio).toFixed(2);
   }
-  // ※自動計算モードの場合は、香料がスケールアップされれば賦香率に合わせて勝手にエタノールも計算されるため不要
 
-  // 5. 画面全体を再計算＆ローカルストレージに保存
   window.onRowValueChange();
-
-  // 6. 完了メッセージ
   alert(`✅ 総重量を ${targetTotal.toFixed(1)}g にスケールアップしました！`);
 };
 
@@ -759,16 +984,13 @@ window.updatePyramidChart = function (topWeight, middleWeight, baseWeight) {
   if (!ctx) return;
 
   const total = topWeight + middleWeight + baseWeight;
-
-  // データが0の場合はグレーのダミーを表示
   const dataValues =
     total === 0 ? [1, 1, 1] : [topWeight, middleWeight, baseWeight];
   const bgColors =
     total === 0
       ? ["#333333", "#333333", "#333333"]
-      : ["#4bc0c0", "#ffce56", "#ff6384"]; // Top(青緑), Middle(黄), Base(赤紫)
+      : ["#4bc0c0", "#ffce56", "#ff6384"];
 
-  // 100%丸め誤差をなくす最大剰余方式
   let displayPercentages = ["0.0", "0.0", "0.0"];
   if (total > 0) {
     let exact = dataValues.map((v) => (v / total) * 1000);
@@ -786,15 +1008,12 @@ window.updatePyramidChart = function (topWeight, middleWeight, baseWeight) {
   }
 
   if (pyramidChart) {
-    // 既にグラフがあればデータを更新
     pyramidChart.data.datasets[0].data = dataValues;
     pyramidChart.data.datasets[0].backgroundColor = bgColors;
-    // ★修正：クロージャ問題を回避するため、データセット内に直接最新の情報を保存
     pyramidChart.data.datasets[0].customPercentages = displayPercentages;
     pyramidChart.data.datasets[0].isEmpty = total === 0;
     pyramidChart.update();
   } else {
-    // 初回のみグラフを新規作成
     pyramidChart = new Chart(ctx, {
       type: "doughnut",
       data: {
@@ -804,8 +1023,8 @@ window.updatePyramidChart = function (topWeight, middleWeight, baseWeight) {
             data: dataValues,
             backgroundColor: bgColors,
             borderWidth: 0,
-            customPercentages: displayPercentages, // 最新％データを格納
-            isEmpty: total === 0, // 空かどうかの最新フラグ
+            customPercentages: displayPercentages,
+            isEmpty: total === 0,
           },
         ],
       },
@@ -814,15 +1033,13 @@ window.updatePyramidChart = function (topWeight, middleWeight, baseWeight) {
         plugins: {
           legend: {
             position: "bottom",
-            labels: { color: "#e0e0e0" }, // ダークテーマ用の文字色
+            labels: { color: "#e0e0e0" },
           },
           tooltip: {
             callbacks: {
               label: function (context) {
-                // ★修正：古い記憶(total変数)には頼らず、常に最新のdatasetから情報を取得する
                 const dataset = context.dataset;
                 if (dataset.isEmpty) return " データなし";
-
                 const label = context.label || "";
                 const val = context.raw;
                 const percentage =
@@ -838,22 +1055,122 @@ window.updatePyramidChart = function (topWeight, middleWeight, baseWeight) {
 };
 
 // ==========================================
-// 🌟 新機能：📂 過去レシピの読み込み・手動保存・管理ロジック
+// 🌟 新機能：📊 バーチャル・ドライダウン（経時揮発グラフ）
 // ==========================================
+let drydownChart = null;
 
-// 現在の作業状態を「新しい履歴」として手動保存する関数
+window.updateDrydownChart = function (ingredientsData) {
+  const ctx = document.getElementById("drydownChart");
+  if (!ctx) return;
+
+  const timePoints = [0, 1, 3, 6];
+  let topTimeline = [];
+  let middleTimeline = [];
+  let baseTimeline = [];
+
+  timePoints.forEach((t) => {
+    let tTotal = 0,
+      mTotal = 0,
+      bTotal = 0;
+
+    ingredientsData.forEach((ing) => {
+      const masterInfo = masterIngredients.find((m) => m.name === ing.name);
+      let rate = 0.5;
+      if (masterInfo && masterInfo.evaporationRate !== undefined) {
+        rate = masterInfo.evaporationRate;
+      } else {
+        rate = ing.note === "Top" ? 10.0 : ing.note === "Middle" ? 3.0 : 0.5;
+      }
+
+      const k = rate * 0.1;
+      const remainingWeight = ing.dryWeight * Math.exp(-k * t);
+
+      if (ing.note === "Top") tTotal += remainingWeight;
+      else if (ing.note === "Middle") mTotal += remainingWeight;
+      else if (ing.note === "Base") bTotal += remainingWeight;
+    });
+
+    const sum = tTotal + mTotal + bTotal;
+    if (sum > 0) {
+      topTimeline.push(((tTotal / sum) * 100).toFixed(1));
+      middleTimeline.push(((mTotal / sum) * 100).toFixed(1));
+      baseTimeline.push(((bTotal / sum) * 100).toFixed(1));
+    } else {
+      topTimeline.push(0);
+      middleTimeline.push(0);
+      baseTimeline.push(0);
+    }
+  });
+
+  if (drydownChart) {
+    drydownChart.data.datasets[0].data = topTimeline;
+    drydownChart.data.datasets[1].data = middleTimeline;
+    drydownChart.data.datasets[2].data = baseTimeline;
+    drydownChart.update();
+  } else {
+    drydownChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: ["0時間後 (塗布)", "1時間後", "3時間後", "6時間後"],
+        datasets: [
+          {
+            label: "Top",
+            data: topTimeline,
+            borderColor: "#4bc0c0",
+            backgroundColor: "rgba(75, 192, 192, 0.1)",
+            tension: 0.3,
+            fill: false,
+          },
+          {
+            label: "Middle",
+            data: middleTimeline,
+            borderColor: "#ffce56",
+            backgroundColor: "rgba(255, 206, 86, 0.1)",
+            tension: 0.3,
+            fill: false,
+          },
+          {
+            label: "Base",
+            data: baseTimeline,
+            borderColor: "#ff6384",
+            backgroundColor: "rgba(255, 99, 132, 0.1)",
+            tension: 0.3,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            min: 0,
+            max: 100,
+            title: { display: true, text: "残香比率 (%)", color: "#818b9d" },
+            ticks: { color: "#818b9d" },
+            grid: { color: "#2c313a" },
+          },
+          x: { ticks: { color: "#818b9d" }, grid: { color: "#2c313a" } },
+        },
+        plugins: {
+          legend: { labels: { color: "#d8dee9" } },
+        },
+      },
+    });
+  }
+};
+
+// ==========================================
+// 🌟 新機能：📂 過去レシピの管理ロジック
+// ==========================================
 window.saveCurrentRecipe = function () {
   const perfumeName =
     document.getElementById("perfumeName").value || "名称未設定";
   const createDate = document.getElementById("createDate").value || "no-date";
   const safeName = perfumeName.replace(/[\/\\?%*:|"<>]/g, "_");
-  // タイムスタンプをつけて完全に一意にする
   const uniqueKey = `recipe_archive_${safeName}_${Date.now()}`;
 
-  // アーカイブ用として保存
   localStorage.setItem(uniqueKey, JSON.stringify(currentFormula));
 
-  // 履歴インデックス一覧を取得して更新する
   const indexSaved = localStorage.getItem("perfume_recipe_index");
   let recipeList = [];
   if (indexSaved) {
@@ -864,22 +1181,20 @@ window.saveCurrentRecipe = function () {
     }
   }
 
-  recipeList.unshift(uniqueKey); // 先頭（一番上）に追加
+  recipeList.unshift(uniqueKey);
   localStorage.setItem("perfume_recipe_index", JSON.stringify(recipeList));
 
   updateRecipeSelectDropdown();
-  document.getElementById("recipeLoadSelect").value = uniqueKey; // 保存したものを選択状態に
+  document.getElementById("recipeLoadSelect").value = uniqueKey;
 
   alert(`💾 「${perfumeName}」を履歴に保存しました！`);
 };
 
-// 画面のプルダウンに保存済みレシピ一覧を表示する関数
 function updateRecipeSelectDropdown() {
   const select = document.getElementById("recipeLoadSelect");
   if (!select) return;
 
   const currentSelection = select.value;
-
   const indexSaved = localStorage.getItem("perfume_recipe_index");
   let recipeList = [];
   if (indexSaved) {
@@ -908,13 +1223,12 @@ function updateRecipeSelectDropdown() {
     return;
   }
 
-  // ★お気に入りをプルダウンの一番上に持ってくる並び替え
   recipeList.sort((a, b) => {
     const aFav = favList.includes(a);
     const bFav = favList.includes(b);
     if (aFav && !bFav) return -1;
     if (!aFav && bFav) return 1;
-    return 0; // どちらも同じなら元の順序
+    return 0;
   });
 
   recipeList.forEach((key) => {
@@ -932,13 +1246,11 @@ function updateRecipeSelectDropdown() {
     }
   });
 
-  // 選択状態を復元
   if (currentSelection && recipeList.includes(currentSelection)) {
     select.value = currentSelection;
   }
 }
 
-// 選択した過去レシピを画面に完全復元する関数
 window.loadSelectedRecipe = function () {
   const select = document.getElementById("recipeLoadSelect");
   const selectedKey = select.value;
@@ -979,7 +1291,6 @@ window.loadSelectedRecipe = function () {
   }
 };
 
-// お気に入り登録/解除機能
 window.toggleFavoriteRecipe = function () {
   const select = document.getElementById("recipeLoadSelect");
   const selectedKey = select.value;
@@ -999,16 +1310,15 @@ window.toggleFavoriteRecipe = function () {
   }
 
   if (favList.includes(selectedKey)) {
-    favList = favList.filter((k) => k !== selectedKey); // 解除
+    favList = favList.filter((k) => k !== selectedKey);
   } else {
-    favList.push(selectedKey); // 登録
+    favList.push(selectedKey);
   }
 
   localStorage.setItem("perfume_recipe_favorites", JSON.stringify(favList));
   updateRecipeSelectDropdown();
 };
 
-// レシピ削除機能
 window.deleteSelectedRecipe = function () {
   const select = document.getElementById("recipeLoadSelect");
   const selectedKey = select.value;
@@ -1018,7 +1328,6 @@ window.deleteSelectedRecipe = function () {
   }
 
   if (confirm("本当にこのレシピを削除しますか？（※復元できません）")) {
-    // インデックスから削除
     const indexSaved = localStorage.getItem("perfume_recipe_index");
     let recipeList = [];
     if (indexSaved) {
@@ -1031,7 +1340,6 @@ window.deleteSelectedRecipe = function () {
     recipeList = recipeList.filter((k) => k !== selectedKey);
     localStorage.setItem("perfume_recipe_index", JSON.stringify(recipeList));
 
-    // お気に入りリストからも削除
     const favSaved = localStorage.getItem("perfume_recipe_favorites");
     let favList = [];
     if (favSaved) {
@@ -1044,71 +1352,134 @@ window.deleteSelectedRecipe = function () {
     favList = favList.filter((k) => k !== selectedKey);
     localStorage.setItem("perfume_recipe_favorites", JSON.stringify(favList));
 
-    // 本体データを削除
     localStorage.removeItem(selectedKey);
-
     updateRecipeSelectDropdown();
     alert("🗑️ レシピを削除しました。");
   }
 };
 
-// 初期化時にプルダウンを読み込むようにDOMContentLoadedに追記
+window.cloneSelectedRecipe = function () {
+  const select = document.getElementById("recipeLoadSelect");
+  const selectedKey = select.value;
+
+  if (!selectedKey) {
+    alert("派生元のレシピを選択してください。");
+    return;
+  }
+
+  const rawData = localStorage.getItem(selectedKey);
+  if (!rawData) return;
+
+  try {
+    const parentFormula = JSON.parse(rawData);
+    let originalName = parentFormula.perfumeName || "No.1.0 / 新規処方";
+    let newName = originalName;
+
+    const match = originalName.match(/No\.(\d+)\.(\d+)/);
+    if (match) {
+      const major = match[1];
+      const minor = parseInt(match[2], 10) + 1;
+      newName = originalName.replace(/No\.\d+\.\d+/, `No.${major}.${minor}`);
+    } else {
+      newName = originalName + " _rev2";
+    }
+
+    currentFormula = JSON.parse(rawData);
+    currentFormula.perfumeName = newName;
+    currentFormula.createDate = new Date().toISOString().split("T")[0];
+    currentFormula.parentRecipeKey = selectedKey;
+
+    document.getElementById("perfumeName").value = currentFormula.perfumeName;
+    document.getElementById("createDate").value = currentFormula.createDate;
+    document.getElementById("concept").value = currentFormula.concept || "";
+    document.getElementById("solventMode").value =
+      currentFormula.solventMode || "auto";
+    document.getElementById("targetConcentration").value =
+      currentFormula.targetConcentration || 0;
+    document.getElementById("addedEthanol").value =
+      currentFormula.addedEthanol || 0;
+
+    toggleSolventModeUI(currentFormula.solventMode);
+    renderTable();
+    calculate();
+
+    localStorage.setItem("perfume_v2_data", JSON.stringify(currentFormula));
+    alert(
+      `🧬 系譜を繋ぎました！\n「${originalName}」の内容を引き継ぎ、新しく「${newName}」を起ち上げました。`,
+    );
+  } catch (e) {
+    alert("レシピの派生処理に失敗しました。");
+  }
+};
+
 window.addEventListener("DOMContentLoaded", () => {
   setTimeout(updateRecipeSelectDropdown, 100);
 });
 
 // ==========================================
-// 🌟 新機能：🌐 タブ画面切り替えロジック（SPA）
+// 🌐 タブ画面切り替えロジック
 // ==========================================
 window.switchTab = function (tabId) {
-  // 1. すべての部屋（コンテンツ）をいったん非表示にする
   const contents = document.querySelectorAll(".tab-content");
-  contents.forEach((content) => {
-    content.classList.remove("active");
-  });
+  contents.forEach((content) => content.classList.remove("active"));
 
-  // 2. すべてのメニューボタンの「選択中カラー」を解除する
   const buttons = document.querySelectorAll(".nav-btn");
-  buttons.forEach((btn) => {
-    btn.classList.remove("active");
-  });
+  buttons.forEach((btn) => btn.classList.remove("active"));
 
-  // 3. クリックされた特定の部屋とボタンだけを「アクティブ状態」にする
   const targetContent = document.getElementById(tabId);
-  if (targetContent) {
-    targetContent.classList.add("active");
-  }
+  if (targetContent) targetContent.classList.add("active");
 
-  // ボタンのアクティブ化（クリックされたボタンを探してクラス付与）
   const clickedBtn = Array.from(buttons).find((btn) =>
     btn.getAttribute("onclick").includes(tabId),
   );
-  if (clickedBtn) {
-    clickedBtn.classList.add("active");
-  }
+  if (clickedBtn) clickedBtn.classList.add("active");
 };
 
 // ==========================================
-// 🌟 新機能：📦 インベントリ（香料在庫）管理ロジック
+// 📦 在庫マスタ管理ロジック
 // ==========================================
-
-// 在庫一覧テーブルを描画する関数
+// 在庫一覧テーブルを描画する関数 (ロットヴィンテージ対応版)
 function renderInventoryTable() {
   const tbody = document.getElementById("inventoryBody");
+  const lotSelect = document.getElementById("lotTargetIngredient");
   if (!tbody) return;
+
   tbody.innerHTML = "";
+  if (lotSelect)
+    lotSelect.innerHTML = '<option value="">-- 対象香料を選択 --</option>';
 
   masterIngredients.forEach((ing, index) => {
     if (ing.name === "カスタム（手入力）") return;
+
+    // ロット追加フォーム用の選択肢を動的注入
+    if (lotSelect) {
+      const opt = document.createElement("option");
+      opt.value = ing.name;
+      opt.innerText = ing.name;
+      lotSelect.appendChild(opt);
+    }
+
+    // 紐づいているロットたちをネオンテキストのリストとして組み立てる
+    let lotListHtml = "";
+    if (ing.lots && ing.lots.length > 0) {
+      lotListHtml = `<div style="font-size: 11px; color: #a0a0a0; margin-top: 6px; padding-left: 10px; border-left: 2px solid #9c27b0; line-height: 1.5;">`;
+      ing.lots.forEach((l) => {
+        lotListHtml += `<div>🍇 ロット: <strong>${l.lotNumber}</strong> (${l.purchaseDate || "日不明"}購入 / 熟成:${l.agingMonths}ヶ月) → <span style="color:#81c784;">${l.price}円/g</span></div>`;
+      });
+      lotListHtml += `</div>`;
+    }
 
     const tr = document.createElement("tr");
     const noteClass = ing.defaultNote.toLowerCase();
 
     tr.innerHTML = `
       <td><span class="note-badge ${noteClass}">${ing.defaultNote}</span></td>
-      <td style="font-weight: bold; color: #fff;">${ing.name}</td>
+      <td>
+        <div style="font-weight: bold; color: #fff;">${ing.name}</div>
+        ${lotListHtml}
+      </td>
       <td>${ing.defaultDilution}% 溶液</td>
-      <td style="color: #81c784;">${ing.price.toLocaleString()} 円 / g</td>
+      <td style="color: #81c784;">${ing.price.toLocaleString()} 円 / g <span style="font-size:10px; color:#666;">(Def)</span></td>
       <td>
         <button type="button" class="btn-delete" onclick="window.deleteMasterIngredient(${index})">削除</button>
       </td>
@@ -1117,7 +1488,6 @@ function renderInventoryTable() {
   });
 }
 
-// 新しい香料をマスタに登録する関数
 window.addMasterIngredient = function (event) {
   event.preventDefault();
 
@@ -1132,26 +1502,21 @@ window.addMasterIngredient = function (event) {
     return;
   }
 
-  // 1. 純粋に配列の末尾に一度追加する
   masterIngredients.push({ name, defaultDilution, defaultNote, price });
-
-  // 2. 追加した瞬間に自動ソート関数を呼び出して綺麗に並び替える
   sortMasterIngredients();
 
-  // 保存と画面更新
   localStorage.setItem(
     "perfume_master_ingredients",
     JSON.stringify(masterIngredients),
   );
   renderInventoryTable();
-  renderTable(); // フォーミュラ室のプルダウンも自動でT/M/B順に同期
+  renderTable();
   calculate();
 
   document.getElementById("inventoryForm").reset();
   alert(`✅ 「${name}」を新しく在庫マスタに登録しました！`);
 };
 
-// 在庫マスタから香料を削除する関数
 window.deleteMasterIngredient = function (index) {
   const targetName = masterIngredients[index].name;
   if (
@@ -1170,16 +1535,13 @@ window.deleteMasterIngredient = function (index) {
   }
 };
 
-// 初期化時に在庫テーブルも描画させる
 window.addEventListener("DOMContentLoaded", () => {
   setTimeout(renderInventoryTable, 150);
 });
 
 // ==========================================
-// 🌟 新機能：📓 熟成・評価ノート管理ロジック
+// 📓 熟成・評価ノート管理ロジック
 // ==========================================
-
-// 熟成ノート用の選択肢（保存済みレシピ）を更新する関数
 function updateMacerationRecipeSelect() {
   const select = document.getElementById("macRecipeKey");
   if (!select) return;
@@ -1215,7 +1577,6 @@ function updateMacerationRecipeSelect() {
   });
 }
 
-// タイムラインを描画する関数
 function renderMacerationTimeline() {
   const timeline = document.getElementById("macerationTimeline");
   if (!timeline) return;
@@ -1237,12 +1598,10 @@ function renderMacerationTimeline() {
     return;
   }
 
-  // タイムスタンプの新しい順（降順）で表示
   logs.forEach((log, index) => {
     const div = document.createElement("div");
     div.className = "timeline-item";
 
-    // 記録された日付のフォーマット
     const logDate = new Date(log.timestamp).toLocaleDateString("ja-JP", {
       year: "numeric",
       month: "2-digit",
@@ -1268,7 +1627,6 @@ function renderMacerationTimeline() {
   });
 }
 
-// 新しい経過記録を追加する関数
 window.addMacerationLog = function (event) {
   event.preventDefault();
 
@@ -1277,11 +1635,10 @@ window.addMacerationLog = function (event) {
   const memo = document.getElementById("macMemo").value.trim();
 
   if (!recipeKey) {
-    alert("対象となるレシピを選択してください。");
+    alert("対象となるレシピを選択してください.");
     return;
   }
 
-  // 選択されたレシピの現在の名前を取得
   const rawRecipe = localStorage.getItem(recipeKey);
   let recipeName = "不明なレシピ";
   if (rawRecipe) {
@@ -1300,25 +1657,15 @@ window.addMacerationLog = function (event) {
     }
   }
 
-  // 新しいログオブジェクトを作成
-  const newLog = {
-    recipeKey,
-    recipeName,
-    days,
-    memo,
-    timestamp: Date.now(),
-  };
-
-  logs.unshift(newLog); // 先頭に追加
+  const newLog = { recipeKey, recipeName, days, memo, timestamp: Date.now() };
+  logs.unshift(newLog);
   localStorage.setItem("perfume_maceration_logs", JSON.stringify(logs));
 
-  // 画面更新とフォームリセット
   renderMacerationTimeline();
   document.getElementById("macMemo").value = "";
   alert("📝 評価ノートに記録しました！");
 };
 
-// ログを削除する関数
 window.deleteMacerationLog = function (index) {
   if (confirm("この記録を削除しますか？")) {
     const savedLogs = localStorage.getItem("perfume_maceration_logs");
@@ -1336,7 +1683,6 @@ window.deleteMacerationLog = function (index) {
   }
 };
 
-// ページ表示時やタブ切り替え時に選択肢を最新にするためのフック
 const originalSwitchTab = window.switchTab;
 window.switchTab = function (tabId) {
   originalSwitchTab(tabId);
@@ -1346,7 +1692,6 @@ window.switchTab = function (tabId) {
   }
 };
 
-// 初期ロード時の実行
 window.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => {
     updateMacerationRecipeSelect();
@@ -1355,52 +1700,42 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================
-// 🌟 新機能：⚙️ 設定・データ一括バックアップ＆復元ロジック
+// ⚙️ バックアップ＆復元ロジック
 // ==========================================
-
-// 全データを1つのJSONファイルとしてエクスポート（ダウンロード）する関数
 window.exportAllData = function () {
-  // 1. 保存するデータの詰め合わせ箱を作る
   const backupData = {
     master_ingredients: localStorage.getItem("perfume_master_ingredients"),
     recipe_index: localStorage.getItem("perfume_recipe_index"),
     recipe_favorites: localStorage.getItem("perfume_recipe_favorites"),
     maceration_logs: localStorage.getItem("perfume_maceration_logs"),
-    recipes: {}, // 個別のレシピデータを格納する部屋
+    recipes: {},
   };
 
-  // 2. インデックスを元に、ローカルストレージにある全レシピの本体データを集約
   const indexSaved = localStorage.getItem("perfume_recipe_index");
   if (indexSaved) {
     try {
       const recipeKeys = JSON.parse(indexSaved);
       recipeKeys.forEach((key) => {
         const data = localStorage.getItem(key);
-        if (data) {
-          backupData.recipes[key] = data;
-        }
+        if (data) backupData.recipes[key] = data;
       });
     } catch (e) {
-      console.error("レシピインデックスの解析に失敗しました", e);
+      console.error("インデックス解析失敗", e);
     }
   }
 
-  // 3. データを文字列にして、隠しリンクを作ってダウンロードを発火させる
   const jsonString = JSON.stringify(backupData, null, 2);
   const blob = new Blob([jsonString], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 
   const a = document.createElement("a");
-  const dateStr = new Date().toISOString().split("T")[0]; // 「2026-07-29」のような文字列
+  const dateStr = new Date().toISOString().split("T")[0];
   a.href = url;
   a.download = `perfume_laboratory_backup_${dateStr}.json`;
   a.click();
-
-  // メモリ解放
   URL.revokeObjectURL(url);
 };
 
-// バックアップファイルを読み込んでローカルストレージを上書き復元する関数
 window.importAllData = function () {
   const fileInput = document.getElementById("importFile");
   if (!fileInput || !fileInput.files[0]) {
@@ -1410,7 +1745,7 @@ window.importAllData = function () {
 
   if (
     confirm(
-      "⚠️ 本当にデータを復元しますか？\n現在ブラウザにあるレシピや在庫マスタはすべて消去され、ファイルの内容に置き換わります。",
+      "⚠️ 本当にデータを復元しますか？既存データはすべて上書き消去されます。",
     )
   ) {
     const file = fileInput.files[0];
@@ -1419,13 +1754,10 @@ window.importAllData = function () {
     reader.onload = function (e) {
       try {
         const backup = JSON.parse(e.target.result);
-
-        // 簡易的なデータ整合性チェック（主要なキーがあるか）
         if (!backup.master_ingredients && !backup.recipe_index) {
-          throw new Error("正しいバックアップファイルではありません。");
+          throw new Error("正しいファイルではありません。");
         }
 
-        // 1. 既存の古い個別レシピデータをブラウザから綺麗に削除する（ゴミ残りを防ぐ）
         const oldIndex = localStorage.getItem("perfume_recipe_index");
         if (oldIndex) {
           try {
@@ -1433,7 +1765,6 @@ window.importAllData = function () {
           } catch (err) {}
         }
 
-        // 2. 新しいデータをローカルストレージに流し込む
         if (backup.master_ingredients)
           localStorage.setItem(
             "perfume_master_ingredients",
@@ -1452,24 +1783,431 @@ window.importAllData = function () {
             backup.maceration_logs,
           );
 
-        // 3. 個別レシピの本体データを一挙に復元
         if (backup.recipes) {
           Object.keys(backup.recipes).forEach((key) => {
             localStorage.setItem(key, backup.recipes[key]);
           });
         }
 
-        alert(
-          "🎉 データの復元が完全に成功しました！\n最新の状態をシステムに適用するため、ページを自動リロードします。",
-        );
-        window.location.reload(); // ページを強制リロードして全画面を最新化
+        alert("🎉 復元に成功しました！再リロードします。");
+        window.location.reload();
       } catch (err) {
-        alert(
-          "❌ データの復元に失敗しました。ファイルが破損しているか、調香ラボのバックアップではない可能性があります。",
-        );
+        alert("❌ 復元に失敗しました。ファイルを確認してください。");
       }
     };
-
     reader.readAsText(file);
   }
+};
+
+// ==========================================
+// 📢 熟成カウントダウン・アラート判定ロジック
+// ==========================================
+function checkMacerationAlerts() {
+  const indexSaved = localStorage.getItem("perfume_recipe_index");
+  if (!indexSaved) return;
+
+  let recipeKeys = [];
+  try {
+    recipeKeys = JSON.parse(indexSaved);
+  } catch (e) {
+    return;
+  }
+
+  const savedLogs = localStorage.getItem("perfume_maceration_logs");
+  let logs = [];
+  if (savedLogs) {
+    try {
+      logs = JSON.parse(savedLogs);
+    } catch (e) {
+      logs = [];
+    }
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let alertMessages = [];
+
+  recipeKeys.forEach((key) => {
+    const rawData = localStorage.getItem(key);
+    if (!rawData) return;
+
+    try {
+      const formula = JSON.parse(rawData);
+      if (!formula.createDate) return;
+
+      const createDate = new Date(formula.createDate);
+      createDate.setHours(0, 0, 0, 0);
+
+      const diffTime = today.getTime() - createDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) return;
+
+      const milestones = [3, 7, 14, 30];
+
+      milestones.forEach((day) => {
+        if (diffDays >= day && diffDays <= day + 3) {
+          const hasLog = logs.some(
+            (log) =>
+              log.recipeKey === key &&
+              (log.days.includes(`Day ${day}`) ||
+                log.days.includes(`${day}日目`)),
+          );
+
+          if (!hasLog) {
+            let milestoneName =
+              day === 3
+                ? "3日目"
+                : day === 7
+                  ? "1週間後"
+                  : day === 14
+                    ? "2週間後"
+                    : "1ヶ月後（完成）";
+            alertMessages.push(
+              `⏳ <strong>${formula.perfumeName}</strong> が仕込みから <strong>${diffDays}日目</strong> (${milestoneName}の節目) を迎えました。テイスティングして評価をノートに記録しましょう！`,
+            );
+          }
+        }
+      });
+    } catch (e) {}
+  });
+
+  const banner = document.getElementById("macerationAlertBanner");
+  if (banner) {
+    if (alertMessages.length > 0) {
+      banner.innerHTML = alertMessages
+        .map(
+          (msg) =>
+            `<div style="margin-bottom: 8px; font-size: 13px; line-height: 1.5; display: flex; align-items: center; gap: 5px;">${msg}</div>`,
+        )
+        .join("");
+      banner.style.display = "block";
+    } else {
+      banner.style.display = "none";
+    }
+  }
+}
+
+// ==========================================
+// 🌳【新機能】遺伝子ツリービュー（家系図）制御ロジック
+// ==========================================
+window.showRecipeTree = function () {
+  const select = document.getElementById("recipeLoadSelect");
+  const selectedKey = select.value;
+
+  if (!selectedKey) {
+    alert("系譜を表示するレシピを履歴から選択してください。");
+    return;
+  }
+
+  const indexSaved = localStorage.getItem("perfume_recipe_index");
+  if (!indexSaved) return;
+
+  let recipeKeys = [];
+  try {
+    recipeKeys = JSON.parse(indexSaved);
+  } catch (e) {
+    return;
+  }
+
+  // 1. 全履歴データを展開し、高速検索用のマップオブジェクトを生成
+  const recipeMap = {};
+  recipeKeys.forEach((key) => {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      try {
+        const formula = JSON.parse(raw);
+        recipeMap[key] = {
+          key: key,
+          name: formula.perfumeName || "名称未設定",
+          date: formula.createDate || "-",
+          parent: formula.parentRecipeKey || null,
+          children: [],
+        };
+      } catch (e) {}
+    }
+  });
+
+  // 2. 親から見た「子供たち（派生先）」のリンク関係を逆引きマッピング
+  Object.keys(recipeMap).forEach((key) => {
+    const parentKey = recipeMap[key].parent;
+    if (parentKey && recipeMap[parentKey]) {
+      recipeMap[parentKey].children.push(key);
+    }
+  });
+
+  // 3. 選択されたノードの親の親の親…と上に向かって遡り、「すべての始祖となるルート」を特定
+  let rootKey = selectedKey;
+  while (
+    recipeMap[rootKey] &&
+    recipeMap[rootKey].parent &&
+    recipeMap[recipeMap[rootKey].parent]
+  ) {
+    rootKey = recipeMap[rootKey].parent;
+  }
+
+  if (!recipeMap[rootKey]) {
+    alert("選択されたレシピの進化系統木を解析できませんでした。");
+    return;
+  }
+
+  // 4. 始祖からスタートし、子孫に向かって再帰的にHTML（ul/li）の木構造を組み立てるインサイド関数
+  function buildTreeHTML(key) {
+    const node = recipeMap[key];
+    if (!node) return "";
+
+    const isCurrent = key === selectedKey;
+    const activeClass = isCurrent ? "current-active" : "";
+
+    // クリックされたら家系図を閉じつつ、その時代のバージョンを瞬間復元ロードするスマートイベントを仕込む
+    let html = `<li>`;
+    html += `<span class="tree-node ${activeClass}" onclick="window.closeRecipeTree(); document.getElementById('recipeLoadSelect').value='${key}'; window.loadSelectedRecipe();">`;
+    html += `${node.name} <span style="font-size: 11px; opacity: 0.5; margin-left: 5px;">(${node.date})</span>`;
+    if (isCurrent) html += ` ◀ 稼働中`;
+    html += `</span>`;
+
+    // 派生した子供（枝分かれ）がいれば再帰掘り下げ
+    if (node.children.length > 0) {
+      // 日付順（古い順）に整列させて左から右（上から下）へタイムライン表示
+      node.children.sort((a, b) =>
+        recipeMap[a].date.localeCompare(recipeMap[b].date),
+      );
+
+      html += `<ul>`;
+      node.children.forEach((childKey) => {
+        html += buildTreeHTML(childKey);
+      });
+      html += `</ul>`;
+    }
+
+    html += `</li>`;
+    return html;
+  }
+
+  // 5. 生成したDOMを注入してモーダルをアクティブ化
+  const container = document.getElementById("recipeTreeContainer");
+  if (container) {
+    container.innerHTML = `<ul>${buildTreeHTML(rootKey)}</ul>`;
+  }
+
+  const modal = document.getElementById("recipeTreeModal");
+  if (modal) {
+    modal.style.display = "flex";
+  }
+};
+
+window.closeRecipeTree = function () {
+  const modal = document.getElementById("recipeTreeModal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+};
+
+// ==========================================
+// ☕【新機能】嗅覚受容体飽和タイマー制御ロジック
+// ==========================================
+let olfactoryTimerInterval = null;
+
+window.startOlfactoryTimer = function () {
+  // ブラウザのプッシュ通知許可をあらかじめリクエスト（スマート設計）
+  if (window.Notification && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+
+  // すでにタイマーが動いている場合は一度クリアして再スタート
+  if (olfactoryTimerInterval) {
+    clearInterval(olfactoryTimerInterval);
+  }
+
+  // 1. 現在の処方から「最大嗅覚疲労度」をスキャンしてタイマーの初期分数を決定
+  let maxFatigue = "Low";
+  const rows = document.querySelectorAll("#ingredientsBody tr");
+
+  rows.forEach((row) => {
+    const note = row.querySelector(".row-note").value; // 行の現在のノート選択（Top/Middle/Base）を取得
+    const nameSelect = row.querySelector(".name-select");
+    let name = nameSelect.value;
+    if (name === "カスタム（手入力）") {
+      name = row.querySelector(".custom-name-input").value || "";
+    }
+
+    // 不正なing参照を排除し、name変数から正しく識別キーを分離
+    const searchName = name.includes("::") ? name.split("::")[0] : name;
+    const masterInfo = masterIngredients.find((m) => m.name === searchName);
+    let currentItemFatigue = "Low";
+
+    if (masterInfo && masterInfo.olfactoryFatigue) {
+      // 在庫マスタにある既存香料なら、設定された疲労度を採用
+      currentItemFatigue = masterInfo.olfactoryFatigue;
+    } else {
+      // マスタにないカスタム素材や未命名の場合は、選択されているノートで安全に自動判定
+      currentItemFatigue =
+        note === "Base" ? "High" : note === "Middle" ? "Medium" : "Low";
+    }
+
+    // 最も高い疲労度をキープ
+    if (currentItemFatigue === "High") {
+      maxFatigue = "High";
+    } else if (currentItemFatigue === "Medium" && maxFatigue !== "High") {
+      maxFatigue = "Medium";
+    }
+  });
+
+  // 疲労度に応じた制限時間（秒数）の設定
+  // High: 15分(900秒) / Medium: 25分(1500秒) / Low: 40分(2400秒)
+  let totalSeconds =
+    maxFatigue === "High" ? 900 : maxFatigue === "Medium" ? 1500 : 2400;
+
+  const displayEl = document.getElementById("olfactoryTimerDisplay");
+  const btnEl = document.getElementById("btnStartOlfTimer");
+
+  displayEl.style.display = "inline-block";
+  btnEl.innerText = "🔄 リセット";
+  btnEl.style.backgroundColor = "#5c2575";
+
+  // 2. カントリーダウンの毎秒駆動開始
+  olfactoryTimerInterval = setInterval(() => {
+    totalSeconds--;
+
+    if (totalSeconds <= 0) {
+      clearInterval(olfactoryTimerInterval);
+      displayEl.innerText = "⏱️ 受容体飽和！";
+      displayEl.style.color = "#ff1744";
+      displayEl.style.backgroundColor = "#3a1217";
+      alert(
+        "⚠️ 【嗅覚限界アラート】\nあなたの受容体は完全に飽和しました。一度天秤から離れ、外の空気を吸うかコーヒー豆を嗅いでノーズリセットを行ってください。",
+      );
+
+      btnEl.innerText = "⏱️ 調香開始";
+      btnEl.style.backgroundColor = "#9c27b0";
+      return;
+    }
+
+    // 分と秒への変換表示処理
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    displayEl.innerText = `⏱️ 飽和まで: ${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
+    // 残り5分（300秒）になった瞬間の先回りブロック通知
+    if (totalSeconds === 300) {
+      const alertMsg =
+        "⏳ 【ノーズリreset予告】残り5分であなたの嗅覚受容体が飽和します。そろそろ一度外の空気を吸いましょう。";
+
+      if (window.Notification && Notification.permission === "granted") {
+        new Notification("Lab Assistant", {
+          body: alertMsg,
+          icon: "/favicon.ico",
+        });
+      } else {
+        alert(alertMsg);
+      }
+    }
+  }, 1000);
+};
+
+// ==========================================
+// 🔮【新機能】ロット・ヴィンテージ追加実行ロジック
+// ==========================================
+window.addLotToIngredient = function (event) {
+  event.preventDefault();
+
+  const targetName = document.getElementById("lotTargetIngredient").value;
+  const lotNumber = document.getElementById("lotNumber").value.trim();
+  const purchaseDate = document.getElementById("lotPurchaseDate").value;
+  const agingMonths =
+    parseInt(document.getElementById("lotAging").value, 10) || 0;
+  const price = parseFloat(document.getElementById("lotPrice").value) || 0;
+
+  if (!targetName) {
+    alert("対象の香料を選択してください。");
+    return;
+  }
+
+  const master = masterIngredients.find((m) => m.name === targetName);
+  if (master) {
+    master.lots = master.lots || [];
+
+    // 同一ロット番号の重複チェック
+    if (master.lots.some((l) => l.lotNumber === lotNumber)) {
+      alert("⚠️ このロット番号は既に登録されています。");
+      return;
+    }
+
+    // ロットオブジェクトをプッシュ
+    master.lots.push({ lotNumber, purchaseDate, agingMonths, price });
+
+    // 保存と各画面の再描画
+    localStorage.setItem(
+      "perfume_master_ingredients",
+      JSON.stringify(masterIngredients),
+    );
+    renderInventoryTable();
+    renderTable(); // フォーミュラ室のプルダウンを即座に更新同期
+    calculate();
+
+    document.getElementById("lotForm").reset();
+    alert(`🍇 「${targetName}」にロット【${lotNumber}】を紐づけ登録しました！`);
+  }
+};
+
+// ==========================================
+// 🧬【新機能】「マイ・アコード」ワンクリック展開マクロ
+// ==========================================
+const presetAccords = {
+  woody_sea: [
+    { name: "Iso E Super", ratio: 5, note: "Base", dilution: 100 },
+    { name: "Timbersilk", ratio: 1, note: "Base", dilution: 100 },
+  ],
+  citrus_skeleton: [
+    { name: "ベルガモット（FCF）", ratio: 3, note: "Top", dilution: 100 },
+    { name: "マンダリン", ratio: 1, note: "Top", dilution: 100 },
+  ],
+  cathedral_incense: [
+    { name: "フランキンセンス", ratio: 2, note: "Middle", dilution: 100 },
+    { name: "シダーウッド", ratio: 2, note: "Middle", dilution: 100 },
+    { name: "パチュリ", ratio: 1, note: "Base", dilution: 100 },
+  ],
+};
+
+window.insertAccord = function () {
+  const select = document.getElementById("accordSelect");
+  const selectedKey = select.value;
+
+  if (!selectedKey) {
+    // alertすらブロックされている可能性を考慮し、選択肢を赤く光らせて警告
+    select.style.border = "2px solid #ff5252";
+    setTimeout(() => {
+      select.style.border = "1px solid #3f4654";
+    }, 1000);
+    return;
+  }
+
+  const accordIngredients = presetAccords[selectedKey];
+  if (!accordIngredients) return;
+
+  // 1. アコード全体の比率の合計を算出
+  const totalRatio = accordIngredients.reduce((sum, ing) => sum + ing.ratio, 0);
+
+  // 💡 修正：ブラウザのポップアップブロック対策として prompt() を完全排除！
+  // 問答無用で「合計1.0g」の骨格比率として一瞬でドロップする仕様に変更。
+  const targetWeight = 1.0;
+
+  // 2. 比率から各香料の wet 重量を出して、現在の処方配列にプッシュ
+  accordIngredients.forEach((ing) => {
+    const calculatedWeight = (ing.ratio / totalRatio) * targetWeight;
+    currentFormula.ingredients.push({
+      note: ing.note,
+      name: ing.name,
+      weight: parseFloat(calculatedWeight.toFixed(3)),
+      dilution: ing.dilution,
+    });
+  });
+
+  // 3. システムの再描画・計算・セーブを一斉同期
+  renderTable();
+  calculate();
+  saveData();
+
+  // UIリセット
+  select.value = "";
 };
