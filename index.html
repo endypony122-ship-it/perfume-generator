@@ -13,7 +13,7 @@
   </head>
   <body>
     <div class="container">
-      <!-- ★追加：ナビゲーションメニューバー -->
+      <!-- ナビゲーションメニューバー -->
       <nav class="tab-navigation">
         <button class="nav-btn active" onclick="window.switchTab('view-lab')">
           📄 フォーミュラ室
@@ -29,7 +29,7 @@
         </button>
       </nav>
 
-      <!-- ★追加：熟成カウントダウン・アラート表示バナー（通知がある時だけ自動出現） -->
+      <!-- 熟成カウントダウン・アラート表示バナー（通知がある時だけ自動出現） -->
       <div id="macerationAlertBanner" class="card" style="display: none; border: 1px solid #ffb300; background-color: #2a1f11; color: #ffe082; padding: 15px; margin-bottom: 20px;">
         <!-- ここに「本日テイスティングを迎えたレシピ」が動的にリストアップされます -->
       </div>
@@ -40,7 +40,7 @@
       <div id="view-lab" class="tab-content active">
         <h1>🧪 調香フォーミュラ・ジェネレーター</h1>
 
-        <!-- ★ここを修正：過去レシピのロード・保存・管理機能 -->
+        <!-- 過去レシピのロード・保存・管理機能 -->
         <div
           class="section card"
           style="border: 1px solid #2196f3; background-color: #152233"
@@ -71,7 +71,7 @@
             >
               📂 復元
             </button>
-            <!-- ★追加：系譜管理のための派生(Clone)ボタン -->
+            <!-- 系譜管理のための派生(Clone)ボタン -->
             <button
               type="button"
               onclick="window.cloneSelectedRecipe()"
@@ -80,7 +80,7 @@
             >
               🧬 派生(Clone)
             </button>
-            <!-- ★追加：遺伝子ツリーポップアップ起動ボタン -->
+            <!-- 遺伝子ツリーポップアップ起動ボタン -->
             <button
               type="button"
               onclick="window.showRecipeTree()"
@@ -198,7 +198,7 @@
           <!-- エラー・警告文表示エリア（通常時は非表示） -->
           <div id="warningBox" class="warning-box" style="display: none"></div>
           
-          <!-- ★追加：IFRA安全基準警告エリア（危険検知時のみ自動出現） -->
+          <!-- IFRA安全基準警告エリア（危険検知時のみ自動出現） -->
           <div id="ifraWarningBox" class="warning-box" style="display: none; background-color: #3a1c1c; border: 1px solid #ff5252; color: #ff9e9e; margin-top: 15px;"></div>
         </div>
 
@@ -206,9 +206,9 @@
         <div class="section card">
           <div class="table-header">
               <h2>3. 香料データ入力</h2>
-              <!-- ★追加：嗅覚タイマー表示UIと起動ボタン -->
+              <!-- 嗅覚タイマー表示UIと起動ボタン -->
               <div style="display: flex; gap: 10px; align-items: center;">
-                <!-- ★追加：マイ・アコード選択マクロ UI -->
+                <!-- マイ・アコード選択マクロ UI -->
                 <div style="display: flex; gap: 5px; align-items: center; border-right: 1px solid #2c313a; padding-right: 10px; margin-right: 5px;">
                   <select id="accordSelect" style="width: auto; padding: 6px 10px; font-size: 13px; background-color: #22252a; border: 1px solid #3f4654; color: #fff; border-radius: 4px;">
                     <option value="">-- アコードを選択 --</option>
@@ -265,18 +265,17 @@
               <span>完成総重量</span>
               <strong id="resTotalWeight">0.00</strong> g
             </div>
-            <!-- ★ここに追加：原価表示 -->
+            <!-- 原価表示 -->
             <div class="result-item">
               <span>想定原価（香料＋溶剤）</span>
               <strong id="resTotalCost">0</strong> 円
             </div>
-            <!-- ★追加：ガンマ体濃度シミュレーター表示 -->
+            <!-- ガンマ体濃度シミュレーター表示 -->
             <div class="result-item" style="background-color: #251b2a; border: 1px solid #7b1fa2;">
               <span style="color: #ce93d8;">🧬 ウッディベース ガンマ体純度</span>
               <strong id="resGammaRatio" style="color: #e1bee7;">0.0</strong> %
               <span id="resGammaStatus" style="font-size: 11px; color: #ba68c8; margin-top: 3px;">-- ケミカル未検出 --</span>
             </div>
-            <!-- ★追加ここまで -->
             <div class="result-item highlight">
               <span>実質賦香率</span>
               <strong id="resConcentration">0.00</strong> %
@@ -295,7 +294,7 @@
           </div>
         </div>
 
-        <!-- ★追加：バーチャル・ドライダウン（揮発タイムライン予測） -->
+        <!-- バーチャル・ドライダウン（揮発タイムライン予測） -->
         <div class="section card">
           <h2>📈 バーチャル・ドライダウン (揮発タイムライン予測)</h2>
           <p class="subtitle">
@@ -403,7 +402,7 @@
                   required
                 />
               </div>
-              <!-- ★追加：希釈溶媒（キャリア）の選択UI -->
+              <!-- 希釈溶媒（キャリア）の選択UI -->
               <div class="input-group">
                 <label>希釈溶媒 (キャリア):</label>
                 <select id="invSolvent">
@@ -424,7 +423,7 @@
           </form>
         </div>
 
-        <!-- ★追加：既存香料へのロット・ヴィンテージ登録フォーム -->
+        <!-- 既存香料へのロット・ヴィンテージ登録フォーム -->
         <div class="section card" style="border: 1px solid #9c27b0; background-color: #1a1322;">
           <h2>➕ 既存香料にロット・ヴィンテージを追加</h2>
           <form id="lotForm" onsubmit="window.addLotToIngredient(event)">
@@ -637,7 +636,7 @@
           </tbody>
         </table>
 
-        <!-- ★追加：香りの構成比率（グラフの埋め込みエリア） -->
+        <!-- 香りの構成比率（グラフの埋め込みエリア） -->
         <div class="pdf-section-title">香りの構成比率 (揮発度・アコードバランス)</div>
         <div style="padding: 15px; border: 1px solid #111; background-color: #f9f9f9; margin-bottom: 25px; display: flex; align-items: center;">
           <div style="flex: 1; text-align: center;">
@@ -650,17 +649,17 @@
           </div>
         </div>
 
-        <!-- ★追加：ここで強制的にPDFのページを分割（改ページ）する -->
+        <!-- ここで強制的にPDFのページを分割（改ページ）する -->
         <div class="html2pdf__page-break"></div>
 
-        <!-- ★修正：熟成（マセレーション）記録・評価（動的流し込みエリア） -->
+        <!-- 熟成（マセレーション）記録・評価（動的流し込みエリア） -->
         <div class="pdf-section-title">熟成 (マセレーション) 記録・評価</div>
         <div id="pdfMacerationLogArea" class="pdf-maceration-box">
           <!-- ここに新システムで入力した過去の経過メモが自動で綺麗に印字されます -->
         </div>
       </div>
     </div>
-    <!-- ★追加：遺伝子ツリービュー用のポップアップモーダル -->
+    <!-- 遺伝子ツリービュー用のポップアップモーダル -->
     <div id="recipeTreeModal" class="modal-overlay" style="display: none;">
       <div class="modal-content result-box">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2c313a; padding-bottom: 10px; margin-bottom: 15px;">

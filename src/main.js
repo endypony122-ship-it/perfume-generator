@@ -12,8 +12,8 @@ const defaultMasterIngredients = [
     defaultDilution: 100,
     defaultNote: "Top",
     price: 278,
-    maxSafeRatio: 0.4, // ★追加: 溶液全体における限界濃度(%)
-    isPhototoxic: true, // ★追加: 光毒性フラグ
+    maxSafeRatio: 0.4, // 溶液全体における限界濃度(%)
+    isPhototoxic: true, // 光毒性フラグ
   },
   {
     name: "ブラックペッパー",
@@ -54,14 +54,14 @@ const defaultMasterIngredients = [
     defaultDilution: 100,
     defaultNote: "Middle",
     price: 12791,
-    maxSafeRatio: 0.02, // ★追加: メチルオイゲノール規制に伴う限界濃度(%)
+    maxSafeRatio: 0.02, // メチルオイゲノール規制に伴う限界濃度(%)
   },
   {
     name: "ジャスミン Abs.",
     defaultDilution: 25,
     defaultNote: "Middle",
     price: 529,
-    maxSafeRatio: 0.6, // ★追加：IFRA上限 0.6%
+    maxSafeRatio: 0.6, // IFRA上限 0.6%
     carrierSolvent: "DPG",
   },
   { name: "Hedione", defaultDilution: 100, defaultNote: "Middle", price: 50 },
@@ -85,8 +85,8 @@ const defaultMasterIngredients = [
     defaultDilution: 25,
     defaultNote: "Base",
     price: 212,
-    maxSafeRatio: 1.9, // ★追加：IFRA上限 1.9%
-    carrierSolvent: "DPG", // ★追加
+    maxSafeRatio: 1.9,
+    carrierSolvent: "DPG",
   },
   {
     name: "Iso E Super",
@@ -95,7 +95,7 @@ const defaultMasterIngredients = [
     price: 48,
     gammaRatio: 8.0,
     isOTNE: true,
-    olfactoryFatigue: "High", // ★追加
+    olfactoryFatigue: "High",
   },
   {
     name: "Timbersilk",
@@ -104,7 +104,7 @@ const defaultMasterIngredients = [
     price: 48,
     gammaRatio: 15.0,
     isOTNE: true,
-    olfactoryFatigue: "High", // ★追加
+    olfactoryFatigue: "High",
   },
   {
     name: "Sylvamber",
@@ -113,14 +113,14 @@ const defaultMasterIngredients = [
     price: 79,
     gammaRatio: 22.0,
     isOTNE: true,
-    olfactoryFatigue: "High", // ★追加
+    olfactoryFatigue: "High",
   },
   {
     name: "Ambroxan",
     defaultDilution: 10,
     defaultNote: "Base",
     price: 440,
-    olfactoryFatigue: "High", // ★追加
+    olfactoryFatigue: "High",
     carrierSolvent: "Ethanol",
   },
   {
@@ -199,19 +199,19 @@ if (savedMaster) {
           ing.isPhototoxic = defaultIng.isPhototoxic;
         if (defaultIng.isOTNE !== undefined) ing.isOTNE = defaultIng.isOTNE;
 
-        // ⭕【ここを追記】初期マスタに溶媒指定があれば、LocalStorageの記憶を強制的に最新版へ上書き同期！
+        // 初期マスタに溶媒指定があれば、LocalStorageの記憶を強制的に最新版へ上書き同期
         if (defaultIng.carrierSolvent !== undefined)
           ing.carrierSolvent = defaultIng.carrierSolvent;
       }
 
-      // ★追加：揮発速度の自動補完（カスタム香料でもノート分類から自動インテリジェンス割り当て）
+      // 揮発速度の自動補完（カスタム香料でもノート分類から自動インテリジェンス割り当て）
       if (ing.evaporationRate === undefined) {
         const currentNote = ing.defaultNote || ing.note;
         if (currentNote === "Top") ing.evaporationRate = 10.0;
         else if (currentNote === "Middle") ing.evaporationRate = 3.0;
         else ing.evaporationRate = 0.5;
       }
-      // ★追加：嗅覚疲労度の自動補完（Baseノートや未設定の素材にインテリジェンス割り当て）
+      // 嗅覚疲労度の自動補完（Baseノートや未設定の素材にインテリジェンス割り当て）
       if (ing.olfactoryFatigue === undefined) {
         const defaultIng = defaultMasterIngredients.find(
           (d) => d.name === ing.name,
@@ -229,8 +229,8 @@ if (savedMaster) {
                 : "Low";
         }
       }
-      if (ing.lots === undefined) ing.lots = []; // ★追加：ロット格納用の子配列を保証
-      // ★追加：希釈溶媒（キャリア）の自動補完パッチ
+      if (ing.lots === undefined) ing.lots = []; // ロット格納用の子配列を保証
+      // 希釈溶媒（キャリア）の自動補完パッチ
       if (ing.carrierSolvent === undefined) {
         const defaultIng = defaultMasterIngredients.find(
           (d) => d.name === ing.name,
@@ -251,7 +251,7 @@ if (savedMaster) {
   masterIngredients = [...defaultMasterIngredients];
 }
 
-// ★追加：データ自体を常に「T → M → Base → 名前順」に美しく並び替える関数
+// データ自体を常に「T → M → Base → 名前順」に並び替える関数
 function sortMasterIngredients() {
   const noteOrder = { Top: 1, Middle: 2, Base: 3 };
   // 「カスタム」行は常に一番最後に固定したいので確保しておく
@@ -295,7 +295,7 @@ window.addEventListener("DOMContentLoaded", () => {
   loadData();
   setupEventListeners();
   calculate();
-  checkMacerationAlerts(); // ★追加：起動時に熟成バナーを自動チェック！
+  checkMacerationAlerts(); // 起動時に熟成バナーを自動チェック
 });
 
 function loadData() {
@@ -380,7 +380,7 @@ function createRowElement(ing, index) {
     if (isSelectedDefault) isCustom = false;
     masterOptions += `<option value="${master.name}" ${isSelectedDefault ? "selected" : ""}>${master.name}</option>`;
 
-    // 2. この香料に紐づくロット・ヴィンテージをすべて選択肢として子展開！
+    // 2. この香料に紐づくロット・ヴィンテージをすべて選択肢として子展開
     if (master.lots && master.lots.length > 0) {
       master.lots.forEach((lot) => {
         const lotValue = `${master.name}::${lot.lotNumber}`;
@@ -422,7 +422,7 @@ window.onIngredientSelectChange = function (selectElement) {
     customInput.value = "";
   } else {
     customInput.style.display = "none";
-    // ★ロット識別キー(::)が含まれている場合は、前半の本体名だけを抽出してマスタ検索
+    // ロット識別キー(::)が含まれている場合は、前半の本体名だけを抽出してマスタ検索
     const searchName = selectedValue.includes("::")
       ? selectedValue.split("::")[0]
       : selectedValue;
@@ -476,19 +476,19 @@ function calculate() {
   let totalDryWeight = 0;
   let totalDiluentWeight = 0;
 
-  // ★コスト集計用の箱
+  // コスト集計用の箱
   let totalCost = 0;
   const ETHANOL_PRICE_PER_GRAM = 3; // 無水エタノール1gの単価（約3円と仮定）
 
-  // ★グラフ用：各ノートの純分を個別に集計する箱
+  // グラフ用：各ノートの純分を個別に集計する箱
   let topTotal = 0;
   let middleTotal = 0;
   let baseTotal = 0;
 
-  // 🧬【新機能追記】ガンマ体シミュレーター用の集計箱
+  // ガンマ体シミュレーター用の集計箱
   let totalWoodyDryWeight = 0; // ガンマ体を持つウッディ素材のドライ総重量
   let totalGammaScore = 0; // ガンマ体スコアの蓄積
-  let totalOilSolventWeight = 0; // ★追加：DPG/IPMオイル溶媒の合計重量を溜める箱
+  let totalOilSolventWeight = 0; // DPG/IPMオイル溶媒の合計重量を溜める箱
 
   const rows = document.querySelectorAll("#ingredientsBody tr");
   const updatedIngredients = [];
@@ -507,7 +507,7 @@ function calculate() {
     const dryWeight = weight * (dilution / 100);
     const diluentWeight = weight - dryWeight;
 
-    // ★改善：ロット識別キーを分離し、マスタデータとロット固有データを個別に抽出
+    // ロット識別キーを分離し、マスタデータとロット固有データを個別に抽出
     let searchName = name;
     let lotInfo = null;
     if (name.includes("::")) {
@@ -523,7 +523,7 @@ function calculate() {
     // 安全にマスタ情報を取得
     const masterInfo = masterIngredients.find((m) => m.name === searchName);
 
-    // ⭕【修正：ここへ移動】masterInfoとdiluentWeightが確定した後に正しく溶媒を集計！
+    // ⭕【修正：ここへ移動】masterInfoとdiluentWeightが確定した後に正しく溶媒を集計
     const carrierSolvent = masterInfo
       ? masterInfo.carrierSolvent || "None"
       : "None";
@@ -542,7 +542,7 @@ function calculate() {
 
     totalCost += weight * unitPrice; // 実測重量 × 1g単価
 
-    // 🧬【新機能追記】ウッディケミカル（ガンマ体を持つ素材）が処方に含まれていれば足し算
+    // ウッディケミカル（ガンマ体を持つ素材）が処方に含まれていれば足し算
     if (gammaRatio > 0) {
       totalWoodyDryWeight += dryWeight;
       totalGammaScore += dryWeight * gammaRatio;
@@ -615,7 +615,7 @@ function calculate() {
   document.getElementById("resConcentration").innerText =
     finalConcentration.toFixed(1);
 
-  // ⚠️【新機能追記】IFRAアレルゲン＆光毒性セーフティ・チェック
+  // IFRAアレルゲン＆光毒性セーフティ・チェック
   let ifraWarnings = [];
   let totalOTNEWetWeight = 0;
 
@@ -742,7 +742,7 @@ function generateSheetText(
         const dilutionStr =
           ing.dilution < 100 ? ` (${ing.dilution}%溶液)` : ` (原液)`;
 
-        // ★暗号（::）が含まれている場合は、「香料名 (ロット: ロット番号)」の綺麗な形式に整形！
+        // 暗号（::）が含まれている場合は、「香料名 (ロット: ロット番号)」の綺麗な形式に整形
         const displayName = ing.name.includes("::")
           ? `${ing.name.split("::")[0]} (ロット: ${ing.name.split("::")[1]})`
           : ing.name;
@@ -825,7 +825,7 @@ window.generatePDF = function () {
     else if (ing.note === "Middle") middleTotal += myDry;
     else if (ing.note === "Base") baseTotal += myDry;
 
-    // ★PDF出力時も暗号（::）を綺麗な名前に分解して整形！
+    // PDF出力時も暗号（::）を綺麗な名前に分解して整形
     const displayName = ing.name.includes("::")
       ? `${ing.name.split("::")[0]} (ロット: ${ing.name.split("::")[1]})`
       : ing.name;
@@ -1528,7 +1528,7 @@ window.addMasterIngredient = function (event) {
   const defaultDilution =
     parseFloat(document.getElementById("invDilution").value) || 100;
   const price = parseFloat(document.getElementById("invPrice").value) || 0;
-  const carrierSolvent = document.getElementById("invSolvent").value; // ★追記
+  const carrierSolvent = document.getElementById("invSolvent").value;
 
   // pushの部分を以下のように拡張
   masterIngredients.push({
@@ -2230,8 +2230,7 @@ window.insertAccord = function () {
   // 1. アコード全体の比率の合計を算出
   const totalRatio = accordIngredients.reduce((sum, ing) => sum + ing.ratio, 0);
 
-  // 💡 修正：ブラウザのポップアップブロック対策として prompt() を完全排除！
-  // 問答無用で「合計1.0g」の骨格比率として一瞬でドロップする仕様に変更。
+  // 「合計1.0g」の骨格比率として一瞬でドロップする仕様に変更
   const targetWeight = 1.0;
 
   // 2. 比率から各香料の wet 重量を出して、現在の処方配列にプッシュ
@@ -2282,7 +2281,7 @@ window.toggleBlindMode = function () {
     nameInput.disabled = true; // タイトル編集を一時ロック
     if (conceptArea) conceptArea.style.filter = "blur(8px)"; // コンセプト文をぼかす
 
-    // 2. 香料リストに超強力な視覚遮断（サイバーぼかし）を執行！
+    // 2. 香料リストに超強力な視覚遮断（サイバーぼかし）を執行
     tableBody.style.filter = "blur(14px)";
     tableBody.style.pointerEvents = "none"; // マウス操作や手入力を完全ブロック
 

@@ -13,7 +13,7 @@ export default function middleware(request) {
     const [user, password] = atob(basicAuth).split(":");
 
     // ==========================================
-    // 🔐 ここで好きなIDとパスワードを設定！
+    // IDとパスワードを設定
     // ==========================================
     const myId = "HaruFum"; // 👈 好きなIDに変更
     const myPassword = "SetPass#1995"; // 👈 好きなパスワードに変更
