@@ -131,8 +131,12 @@
         </div>
 
         <!-- 基本情報 -->
+        <!-- 基本情報 -->
         <div class="section card">
-          <h2>1. 基本情報</h2>
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2c313a; padding-bottom: 8px; margin-bottom: 15px;">
+            <h2 style="border: none; margin: 0; padding: 0;">1. 基本情報</h2>
+            <button type="button" id="btnBlindMode" onclick="window.toggleBlindMode()" class="btn-add" style="background-color: #ff5252; color: #fff; margin-top: 0; padding: 6px 12px;">🕵️ ブラインドテストON</button>
+          </div>
           <div class="input-group">
             <label>試作番号 / 名前:</label>
             <input
@@ -398,6 +402,16 @@
                   max="100"
                   required
                 />
+              </div>
+              <!-- ★追加：希釈溶媒（キャリア）の選択UI -->
+              <div class="input-group">
+                <label>希釈溶媒 (キャリア):</label>
+                <select id="invSolvent">
+                  <option value="None">None (原液 100%)</option>
+                  <option value="DPG">DPG (非揮発性・重い)</option>
+                  <option value="IPM">IPM (非揮発性・軽い)</option>
+                  <option value="Ethanol">Ethanol (揮発性)</option>
+                </select>
               </div>
               <div class="input-group">
                 <label>1gあたりの単価 (円):</label>

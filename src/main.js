@@ -62,6 +62,7 @@ const defaultMasterIngredients = [
     defaultNote: "Middle",
     price: 529,
     maxSafeRatio: 0.6, // ★追加：IFRA上限 0.6%
+    carrierSolvent: "DPG",
   },
   { name: "Hedione", defaultDilution: 100, defaultNote: "Middle", price: 50 },
   // --- Base Notes ---
@@ -85,6 +86,7 @@ const defaultMasterIngredients = [
     defaultNote: "Base",
     price: 212,
     maxSafeRatio: 1.9, // ★追加：IFRA上限 1.9%
+    carrierSolvent: "DPG", // ★追加
   },
   {
     name: "Iso E Super",
@@ -119,6 +121,7 @@ const defaultMasterIngredients = [
     defaultNote: "Base",
     price: 440,
     olfactoryFatigue: "High", // ★追加
+    carrierSolvent: "Ethanol",
   },
   {
     name: "Habanolide",
@@ -182,6 +185,7 @@ if (savedMaster) {
     masterIngredients = JSON.parse(savedMaster);
 
     // 🧬【自動パッチ】既存のセーブデータに新しいパラメータがない場合、初期マスタから自動補完
+    // 🧬【自動パッチ】既存のセーブデータに新しいパラメータがない場合、初期マスタから自動補完
     masterIngredients.forEach((ing) => {
       const defaultIng = defaultMasterIngredients.find(
         (d) => d.name === ing.name,
@@ -193,7 +197,11 @@ if (savedMaster) {
           ing.maxSafeRatio = defaultIng.maxSafeRatio;
         if (defaultIng.isPhototoxic !== undefined)
           ing.isPhototoxic = defaultIng.isPhototoxic;
-        if (defaultIng.isOTNE !== undefined) ing.isOTNE = defaultIng.isOTNE; // ★追加：OTNEフラグの引き継ぎ
+        if (defaultIng.isOTNE !== undefined) ing.isOTNE = defaultIng.isOTNE;
+
+        // ⭕【ここを追記】初期マスタに溶媒指定があれば、LocalStorageの記憶を強制的に最新版へ上書き同期！
+        if (defaultIng.carrierSolvent !== undefined)
+          ing.carrierSolvent = defaultIng.carrierSolvent;
       }
 
       // ★追加：揮発速度の自動補完（カスタム香料でもノート分類から自動インテリジェンス割り当て）
@@ -222,6 +230,19 @@ if (savedMaster) {
         }
       }
       if (ing.lots === undefined) ing.lots = []; // ★追加：ロット格納用の子配列を保証
+      // ★追加：希釈溶媒（キャリア）の自動補完パッチ
+      if (ing.carrierSolvent === undefined) {
+        const defaultIng = defaultMasterIngredients.find(
+          (d) => d.name === ing.name,
+        );
+        if (defaultIng && defaultIng.carrierSolvent) {
+          ing.carrierSolvent = defaultIng.carrierSolvent;
+        } else {
+          // マスタにないカスタム素材などは希釈率が100未満ならデフォルトでDPGと判定
+          ing.carrierSolvent =
+            ing.defaultDilution < 100 || ing.dilution < 100 ? "DPG" : "None";
+        }
+      }
     });
   } catch (e) {
     masterIngredients = [...defaultMasterIngredients];
@@ -467,6 +488,7 @@ function calculate() {
   // 🧬【新機能追記】ガンマ体シミュレーター用の集計箱
   let totalWoodyDryWeight = 0; // ガンマ体を持つウッディ素材のドライ総重量
   let totalGammaScore = 0; // ガンマ体スコアの蓄積
+  let totalOilSolventWeight = 0; // ★追加：DPG/IPMオイル溶媒の合計重量を溜める箱
 
   const rows = document.querySelectorAll("#ingredientsBody tr");
   const updatedIngredients = [];
@@ -498,8 +520,16 @@ function calculate() {
       }
     }
 
-    // 重複宣言と不正なing参照を排除し、安全にマスタ情報を取得
+    // 安全にマスタ情報を取得
     const masterInfo = masterIngredients.find((m) => m.name === searchName);
+
+    // ⭕【修正：ここへ移動】masterInfoとdiluentWeightが確定した後に正しく溶媒を集計！
+    const carrierSolvent = masterInfo
+      ? masterInfo.carrierSolvent || "None"
+      : "None";
+    if (carrierSolvent === "DPG" || carrierSolvent === "IPM") {
+      totalOilSolventWeight += diluentWeight;
+    }
 
     // ロット固有の単価があればそれを採用、なければ通常のデフォルト単価を採用
     let unitPrice = masterInfo ? masterInfo.price : 0;
@@ -523,7 +553,7 @@ function calculate() {
     totalDryWeight += dryWeight;
     totalDiluentWeight += diluentWeight;
 
-    // グラフ用：ノートに合わせて個別の箱に足し算（重複タイポを美しく修正）
+    // グラフ用：ノートに合わせて個別の箱に足し算
     if (note === "Top") topTotal += dryWeight;
     else if (note === "Middle") middleTotal += dryWeight;
     else if (note === "Base") baseTotal += dryWeight;
@@ -587,7 +617,7 @@ function calculate() {
 
   // ⚠️【新機能追記】IFRAアレルゲン＆光毒性セーフティ・チェック
   let ifraWarnings = [];
-  let totalOTNEWetWeight = 0; // ★追加：OTNE系の合計実測重量を溜める箱
+  let totalOTNEWetWeight = 0;
 
   updatedIngredients.forEach((ing) => {
     const searchName = ing.name.includes("::")
@@ -596,23 +626,20 @@ function calculate() {
     const masterInfo = masterIngredients.find((m) => m.name === searchName);
 
     if (masterInfo) {
-      // ★追加：もし登録されている素材がOTNE系だったら、実測重量を合算
       if (masterInfo.isOTNE) {
         totalOTNEWetWeight += ing.wetWeight;
       }
 
       if (masterInfo.maxSafeRatio !== undefined) {
-        // 完成総重量に対する、この香料の生の wet 重量比率(%)を算出
         const actualRatioInSolution =
           finalTotalWeight > 0 ? (ing.wetWeight / finalTotalWeight) * 100 : 0;
 
-        // 安全基準値を超えていた場合、警告メッセージを生成
         if (actualRatioInSolution > masterInfo.maxSafeRatio) {
-          let msg = `⚠️ <strong>IFRA基準超越</strong>: 【${searchName}】の製品内濃度（${actualRatioInSolution.toFixed(2)}%）が安全限界値（${masterInfo.maxSafeRatio}%）を超えています。`;
+          let msg = `⚠️ <strong>IFRA基準超越</strong>: 【${searchName}】の製品内濃度（${actualRatioInSolution.toFixed(2)}%）が安全限界値（${masterInfo.maxSafeRatio}%）超え。`;
           if (masterInfo.isPhototoxic) {
-            msg += ` 日中の使用により光毒性（紫外線による重度の皮膚トラブル）のリスクがあります。`;
+            msg += ` 光毒性のリスクがあります。`;
           } else {
-            msg += ` 感作性（アレルギー反応）を引き起こす恐れがあります。`;
+            msg += ` 感作性（アレルギー）のリスクがあります。`;
           }
           ifraWarnings.push(msg);
         }
@@ -620,12 +647,20 @@ function calculate() {
     }
   });
 
-  // ★追加：OTNE系の合計濃度チェック（製品全体に対して20%を超えたら警告）
   const actualOTNERatio =
     finalTotalWeight > 0 ? (totalOTNEWetWeight / finalTotalWeight) * 100 : 0;
   if (actualOTNERatio > 20.0) {
     ifraWarnings.push(
-      `⚠️ <strong>IFRA基準超越</strong>: 【OTNE系（ウッディケミカル）】の合計製品内濃度（${actualOTNERatio.toFixed(2)}%）が安全限界値（20.0%）を超えています。肌への感作性リスクが高まります。`,
+      `⚠️ <strong>IFRA基準超越</strong>: 【OTNE系】の合計濃度（${actualOTNERatio.toFixed(2)}%）が安全限界値（20.0%）を超えています。`,
+    );
+  }
+
+  // 🧪【新機能】総DPG/IPM量による物理品質・目詰まり警告
+  const actualOilRatio =
+    finalTotalWeight > 0 ? (totalOilSolventWeight / finalTotalWeight) * 100 : 0;
+  if (actualOilRatio > 10.0) {
+    ifraWarnings.push(
+      `⚠️ <strong>物理品質警告</strong>: 非揮発性溶媒（DPG/IPMオイル）の製品内総濃度（${actualOilRatio.toFixed(1)}%）が安全圏である<strong>10.0%</strong>を超えています。スプレーノズルの物理的な目詰まりリスクや、トップノートの鮮やかな立ち上がりが重くブロックされる恐れがあります。`,
     );
   }
 
@@ -644,11 +679,10 @@ function calculate() {
     }
   }
 
-  // 🧬【新機能追記】平均ガンマ体濃度の算出と計算結果エリアへのリアルタイム描画
+  // 平均ガンマ体濃度の算出と描画
   const avgGammaRatio =
     totalWoodyDryWeight > 0 ? totalGammaScore / totalWoodyDryWeight : 0;
 
-  // HTML上の要素が存在することを確認して値を代入
   const gammaRatioEl = document.getElementById("resGammaRatio");
   const gammaStatusEl = document.getElementById("resGammaStatus");
 
@@ -677,12 +711,10 @@ function calculate() {
     finalTotalWeight,
   );
 
-  // グラフの表示を更新
   if (typeof window.updatePyramidChart === "function") {
     window.updatePyramidChart(topTotal, middleTotal, baseTotal);
   }
 
-  // ★追加：バーチャル・ドライダウン（経時揮発）グラフをリアルタイム更新！
   if (typeof window.updateDrydownChart === "function") {
     window.updateDrydownChart(updatedIngredients);
   }
@@ -1478,7 +1510,7 @@ function renderInventoryTable() {
         <div style="font-weight: bold; color: #fff;">${ing.name}</div>
         ${lotListHtml}
       </td>
-      <td>${ing.defaultDilution}% 溶液</td>
+      <td>${ing.defaultDilution}% 溶液 ${ing.carrierSolvent && ing.carrierSolvent !== "None" ? `<span style="font-size:11px; color:#ba68c8;">(${ing.carrierSolvent}希釈)</span>` : ""}</td>
       <td style="color: #81c784;">${ing.price.toLocaleString()} 円 / g <span style="font-size:10px; color:#666;">(Def)</span></td>
       <td>
         <button type="button" class="btn-delete" onclick="window.deleteMasterIngredient(${index})">削除</button>
@@ -1496,6 +1528,16 @@ window.addMasterIngredient = function (event) {
   const defaultDilution =
     parseFloat(document.getElementById("invDilution").value) || 100;
   const price = parseFloat(document.getElementById("invPrice").value) || 0;
+  const carrierSolvent = document.getElementById("invSolvent").value; // ★追記
+
+  // pushの部分を以下のように拡張
+  masterIngredients.push({
+    name,
+    defaultDilution,
+    defaultNote,
+    price,
+    carrierSolvent,
+  });
 
   if (masterIngredients.some((ing) => ing.name === name)) {
     alert("⚠️ その香料名は既に登録されています。");
@@ -2210,4 +2252,56 @@ window.insertAccord = function () {
 
   // UIリセット
   select.value = "";
+};
+
+// ==========================================
+// 🕵️【新機能】嗅覚ブラインド・テイスティング・ランダマイザー
+// ==========================================
+let isBlindMode = false;
+let originalPerfumeName = "";
+
+window.toggleBlindMode = function () {
+  const nameInput = document.getElementById("perfumeName");
+  const tableBody = document.getElementById("ingredientsBody");
+  const btn = document.getElementById("btnBlindMode");
+  const conceptArea = document.getElementById("concept");
+
+  if (!nameInput || !tableBody || !btn) return;
+
+  isBlindMode = !isBlindMode;
+
+  if (isBlindMode) {
+    // 1. レシピ名とコンセプトを記憶した上で、サイバー暗号コードへ偽装
+    originalPerfumeName = nameInput.value;
+    const uppercaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const randomLetter =
+      uppercaseLetters[Math.floor(Math.random() * uppercaseLetters.length)];
+    const randomCode = `🕵️ 【BLIND_PROJECT: ${randomLetter}-${Math.floor(Math.random() * 900 + 100)}】`;
+
+    nameInput.value = randomCode;
+    nameInput.disabled = true; // タイトル編集を一時ロック
+    if (conceptArea) conceptArea.style.filter = "blur(8px)"; // コンセプト文をぼかす
+
+    // 2. 香料リストに超強力な視覚遮断（サイバーぼかし）を執行！
+    tableBody.style.filter = "blur(14px)";
+    tableBody.style.pointerEvents = "none"; // マウス操作や手入力を完全ブロック
+
+    // 3. ボタンのステート変更
+    btn.innerText = "👁️ 視覚・先入観を復元";
+    btn.style.backgroundColor = "#00e676";
+    btn.style.color = "#0d0e11";
+  } else {
+    // 🔄 復元ロジック：元の綺麗なデータを何事もなかったかのように呼び戻す
+    nameInput.value =
+      originalPerfumeName || "No.3.0 / ドライ・インセンスウッド";
+    nameInput.disabled = false;
+    if (conceptArea) conceptArea.style.filter = "none";
+
+    tableBody.style.filter = "none";
+    tableBody.style.pointerEvents = "auto";
+
+    btn.innerText = "🕵️ ブラインドテストON";
+    btn.style.backgroundColor = "#ff5252";
+    btn.style.color = "#fff";
+  }
 };
