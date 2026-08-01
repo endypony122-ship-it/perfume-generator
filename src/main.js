@@ -2304,3 +2304,379 @@ window.toggleBlindMode = function () {
     btn.style.color = "#fff";
   }
 };
+
+// ==========================================
+// 🏛️【新機能】熟成ノート「香気プロファイル・レーダーチャート」制御
+// ==========================================
+let macerationRadarChart = null;
+
+// 1. ログ記録時にスライダーの官能データを一緒に吸い上げるように関数を拡張
+const originalAddMacerationLog = window.addMacerationLog;
+window.addMacerationLog = function (event) {
+  event.preventDefault();
+
+  const recipeKey = document.getElementById("macRecipeKey").value;
+  const days = document.getElementById("macDays").value;
+  const memo = document.getElementById("macMemo").value.trim();
+
+  if (!recipeKey) return alert("対象となるレシピを選択してください。");
+
+  // スライダーから8大要素の値をオブジェクトとして抽出
+  const profile = {
+    woody: parseInt(document.getElementById("prof_woody").value, 10),
+    citrus: parseInt(document.getElementById("prof_citrus").value, 10),
+    floral: parseInt(document.getElementById("prof_floral").value, 10),
+    spicy: parseInt(document.getElementById("prof_spicy").value, 10),
+    balsamic: parseInt(document.getElementById("prof_balsamic").value, 10),
+    musky: parseInt(document.getElementById("prof_musky").value, 10),
+    amber: parseInt(document.getElementById("prof_amber").value, 10),
+    texture: parseInt(document.getElementById("prof_texture").value, 10),
+  };
+
+  const rawRecipe = localStorage.getItem(recipeKey);
+  let recipeName = "不明なレシピ";
+  if (rawRecipe) {
+    try {
+      recipeName = JSON.parse(rawRecipe).perfumeName;
+    } catch (e) {}
+  }
+
+  const savedLogs = localStorage.getItem("perfume_maceration_logs");
+  let logs = [];
+  if (savedLogs) {
+    try {
+      logs = JSON.parse(savedLogs);
+    } catch (e) {
+      logs = [];
+    }
+  }
+
+  // 拡張データ構造でログを先頭に挿入
+  const newLog = {
+    recipeKey,
+    recipeName,
+    days,
+    memo,
+    profile,
+    timestamp: Date.now(),
+  };
+  logs.unshift(newLog);
+  localStorage.setItem("perfume_maceration_logs", JSON.stringify(logs));
+
+  // フォーム＆スライダーをリセット
+  document.getElementById("macMemo").value = "";
+  const sliders = [
+    "woody",
+    "citrus",
+    "floral",
+    "spicy",
+    "balsamic",
+    "musky",
+    "amber",
+    "texture",
+  ];
+  sliders.forEach((id) => {
+    document.getElementById(`prof_${id}`).value = 0;
+  });
+
+  // 画面のタイムラインとレーダーチャートを一斉再描画
+  renderMacerationTimeline();
+  window.updateMacerationRadar();
+  alert("📝 香気プロファイルと共に評価ノートに記録しました！");
+};
+
+// 2. レシピに紐づく過去の全官能ログを1つのチャートに重ね合わせる描画コア
+window.updateMacerationRadar = function () {
+  const recipeKey = document.getElementById("macRecipeKey").value;
+  const card = document.getElementById("radarChartCard");
+  const ctx = document.getElementById("macerationRadarChart");
+
+  if (!recipeKey || !ctx) {
+    if (card) card.style.display = "none";
+    return;
+  }
+
+  const rawRecipe = localStorage.getItem(recipeKey);
+  if (!rawRecipe) return;
+  const targetRecipeName = JSON.parse(rawRecipe).perfumeName;
+
+  const savedLogs = localStorage.getItem("perfume_maceration_logs");
+  let logs = [];
+  if (savedLogs) {
+    try {
+      logs = JSON.parse(savedLogs);
+    } catch (e) {}
+  }
+
+  // このレシピに対するログだけを抽出（古い順にソートしてタイムライン化）
+  const myLogs = logs
+    .filter((log) => log.recipeName === targetRecipeName)
+    .reverse();
+  // プロファイル（官能データ）を持っているログだけに絞り込む
+  const validLogs = myLogs.filter((log) => log.profile);
+
+  if (validLogs.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block"; // データがあればチャートカードを展開
+
+  // 経過日数（Day）ごとのエモいネオンカラーパレット定義
+  const colorMap = {
+    "Day 0 (調香直後)": { border: "#00e5ff", bg: "rgba(0, 229, 255, 0.15)" },
+    "Day 3 (3日目)": { border: "#ffce56", bg: "rgba(255, 206, 86, 0.15)" },
+    "Day 7 (1週間後)": { border: "#ff9800", bg: "rgba(255, 152, 0, 0.15)" },
+    "Day 14 (2週間後)": { border: "#e91e63", bg: "rgba(233, 30, 99, 0.15)" },
+    "Day 30 (1ヶ月後)": { border: "#00e676", bg: "rgba(0, 230, 118, 0.15)" },
+    その他: { border: "#9c27b0", bg: "rgba(156, 39, 176, 0.15)" },
+  };
+
+  // ログからChart.js用のデータセット（レイヤー）を動的生成
+  const datasets = validLogs.map((log) => {
+    const colors = colorMap[log.days] || colorMap["その他"];
+    return {
+      label: log.days,
+      data: [
+        log.profile.woody,
+        log.profile.citrus,
+        log.profile.floral,
+        log.profile.spicy,
+        log.profile.balsamic,
+        log.profile.musky,
+        log.profile.amber,
+        log.profile.texture,
+      ],
+      borderColor: colors.border,
+      backgroundColor: colors.bg,
+      borderWidth: 2,
+      pointBackgroundColor: colors.border,
+      lineTension: 0.2,
+    };
+  });
+
+  if (macerationRadarChart) {
+    macerationRadarChart.data.datasets = datasets;
+    macerationRadarChart.update();
+  } else {
+    macerationRadarChart = new Chart(ctx, {
+      type: "radar",
+      data: {
+        labels: [
+          "Woody 🌲",
+          "Citrus 🍋",
+          "Floral 🌹",
+          "Spicy 🌶️",
+          "Balsamic 🪵",
+          "Musky 🧼",
+          "Amber  Whale",
+          "Texture ✨",
+        ],
+        datasets: datasets,
+      },
+      options: {
+        responsive: true,
+        scales: {
+          r: {
+            min: 0,
+            max: 5,
+            ticks: { stepSize: 1, display: false },
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+            angleLines: { color: "rgba(255, 255, 255, 0.1)" },
+            pointLabels: {
+              color: "#818b9d",
+              font: { size: 11, weight: "bold" },
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: "#d8dee9", font: { size: 11 } },
+          },
+        },
+      },
+    });
+  }
+};
+
+// 3. 熟成ノートのプルダウン選択が変わったときや、タブが切り替わったときに自動更新連動
+document
+  .getElementById("macRecipeKey")
+  .addEventListener("change", window.updateMacerationRadar);
+const finalOriginalSwitchTab = window.switchTab;
+window.switchTab = function (tabId) {
+  finalOriginalSwitchTab(tabId);
+  if (tabId === "view-maceration") {
+    setTimeout(window.updateMacerationRadar, 50);
+  }
+};
+
+// ==========================================
+// 🎙️【新機能】音声ナビゲーション調香モード（Voice Lab Assistant）
+// ==========================================
+let isVoiceNavActive = false;
+let voiceNavIndex = 0;
+let voiceRecognition = null;
+
+// 音声合成（喋る）ショートカット
+function labSpeak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel(); // 前の音声を強制カットして割り込む
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "ja-JP";
+  utterance.rate = 1.0; // 落ち着いたプロの速度
+  utterance.pitch = 1.0;
+
+  // ⭕ 追加：画面のスライダーから音量（0.0 〜 1.0）を動的に取得して適用
+  const volEl = document.getElementById("voiceVolume");
+  if (volEl) {
+    utterance.volume = parseFloat(volEl.value);
+  }
+
+  window.speechSynthesis.speak(utterance);
+}
+
+// 現在のターゲット香料を画面に映し、パフューマーに伝える
+function announceCurrentIngredient() {
+  const ingredients = currentFormula.ingredients || [];
+  if (ingredients.length === 0 || voiceNavIndex >= ingredients.length) {
+    document.getElementById("voiceNavStatus").innerText =
+      "✨ すべての計量が完了しました！";
+    document.getElementById("voiceNavTarget").style.display = "none";
+    labSpeak(
+      "すべての素材の計量が完了しました。処方シートをクローズします。お疲れ様でした。",
+    );
+    window.stopVoiceNavEngine();
+    return;
+  }
+
+  const ing = ingredients[voiceNavIndex];
+
+  // 画面上のテーブルの該当行をネオンハイライトして視覚的にも迷子防止
+  const rows = document.querySelectorAll("#ingredientsBody tr");
+  rows.forEach((row, idx) => {
+    row.style.backgroundColor =
+      idx === voiceNavIndex ? "rgba(156, 39, 176, 0.15)" : "";
+    row.style.border = idx === voiceNavIndex ? "1px solid #9c27b0" : "";
+  });
+
+  // モニター表示の更新
+  document.getElementById("voiceNavStatus").innerText =
+    `🧪 【STEP ${voiceNavIndex + 1} / ${ingredients.length}】 計量してください`;
+  const targetText = `${ing.name} ➔ 【 ${ing.weight.toFixed(3)} g 】 (${ing.note} / ${ing.dilution}%溶液)`;
+  const monitorTarget = document.getElementById("voiceNavTarget");
+  monitorTarget.innerText = targetText;
+  monitorTarget.style.display = "block";
+
+  // 音声ガイダンス再生
+  labSpeak(`${ing.name}。狙う重量は、${ing.weight.toFixed(3)} グラムです。`);
+}
+
+window.toggleVoiceNav = function () {
+  if (isVoiceNavActive) {
+    window.stopVoiceNavEngine();
+    labSpeak("ボイスナビゲーションを終了します。");
+  } else {
+    window.startVoiceNavEngine();
+  }
+};
+
+window.startVoiceNavEngine = function () {
+  const ingredients = currentFormula.ingredients || [];
+  if (ingredients.length === 0) {
+    alert("処方に香料が登録されていません。");
+    return;
+  }
+
+  // ブラウザの音声認識エンジンを起動
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert("お使いのブラウザは音声認識に対応していません。Chromeを推奨します。");
+    return;
+  }
+
+  isVoiceNavActive = true;
+  voiceNavIndex = 0;
+
+  const btn = document.getElementById("btnVoiceNav");
+  btn.innerText = "🛑 ナビを停止";
+  btn.style.backgroundColor = "#ff5252";
+
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = "ja-JP";
+  voiceRecognition.continuous = true; // パフューマーが喋るまでずっと起きて待つ
+  voiceRecognition.interimResults = false;
+
+  // 音声コマンドを解析するブレイン
+  voiceRecognition.onresult = function (event) {
+    const resultText =
+      event.results[event.results.length - 1][0].transcript.trim();
+    console.log("🎙️ 認識された声:", resultText);
+
+    if (
+      resultText.includes("つぎ") ||
+      resultText.includes("次") ||
+      resultText.includes("チェック")
+    ) {
+      voiceNavIndex++;
+      announceCurrentIngredient();
+    } else if (resultText.includes("もどる") || resultText.includes("戻る")) {
+      if (voiceNavIndex > 0) {
+        voiceNavIndex--;
+        announceCurrentIngredient();
+      } else {
+        labSpeak("これ以上は戻れません。最初の一行目です。");
+      }
+    } else if (
+      resultText.includes("もう一回") ||
+      resultText.includes("もういっかい") ||
+      resultText.includes("リピート")
+    ) {
+      announceCurrentIngredient();
+    } else if (
+      resultText.includes("ストップ") ||
+      resultText.includes("終了") ||
+      resultText.includes("おわり")
+    ) {
+      window.toggleVoiceNav();
+    }
+  };
+
+  // 途中で認識が切れても、ナビがアクティブならゾンビのように自動再起動するプロ設計
+  voiceRecognition.onend = function () {
+    if (isVoiceNavActive && voiceRecognition) {
+      voiceRecognition.start();
+    }
+  };
+
+  voiceRecognition.start();
+  announceCurrentIngredient(); // 最初の香料をコール
+};
+
+window.stopVoiceNavEngine = function () {
+  isVoiceNavActive = false;
+
+  const btn = document.getElementById("btnVoiceNav");
+  if (btn) {
+    btn.innerText = "🎙️ ボイスナビを開始する";
+    btn.style.backgroundColor = "#9c27b0";
+  }
+
+  document.getElementById("voiceNavStatus").innerText =
+    "スタンバイ中... ボタンを押すと最初の香料を読み上げます。";
+  document.getElementById("voiceNavTarget").style.display = "none";
+
+  // テーブルのハイライトを全解除
+  const rows = document.querySelectorAll("#ingredientsBody tr");
+  rows.forEach((row) => {
+    row.style.backgroundColor = "";
+    row.style.border = "";
+  });
+
+  if (voiceRecognition) {
+    voiceRecognition.onend = null; // 自動再起動のループを断ち切る
+    voiceRecognition.stop();
+    voiceRecognition = null;
+  }
+};

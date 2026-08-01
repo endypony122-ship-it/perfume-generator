@@ -283,6 +283,26 @@
           </div>
         </div>
 
+        <!-- 音声ナビゲーション（Voice Lab Assistant）コントロールパネル -->
+        <div class="section card" style="border: 1px solid #9c27b0; background-color: #1a1322; margin-top: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="margin: 0; color: #ce93d8; font-size: 16px;">🎙️ Voice Lab Assistant (音声ナビ調香)</h3>
+            <!-- ★追加：音量調整スライダー -->
+            <div style="display: flex; align-items: center; gap: 8px; background-color: #22252a; padding: 4px 10px; border-radius: 4px; border: 1px solid #3f4654; margin-left: auto; margin-right: 10px;">
+              <span style="font-size: 12px; color: #818b9d; white-space: nowrap;">🔊 70%</span>
+              <input type="range" id="voiceVolume" min="0" max="1" step="0.1" value="0.7" style="width: 70px; height: 6px; margin: 0; padding: 0; cursor: pointer;" oninput="this.previousElementSibling.innerText='🔊 '+Math.round(this.value*100)+'%'">
+            </div>
+            <button type="button" id="btnVoiceNav" onclick="window.toggleVoiceNav()" class="btn-add" style="background-color: #9c27b0; color: #fff; padding: 6px 15px;">🎙️ ボイスナビを開始する</button>
+          </div>
+          <p class="subtitle" style="margin-bottom: 15px;">【ボイスコマンド】 「つぎ」または「チェック」 ➔ 次へ / 「もどる」 ➔ 前へ / 「もういかい」 ➔ 再読 / 「ストップ」 ➔ 終了</p>
+          
+          <!-- 現在の計量指示がデカデカと出るサイバーモニター -->
+          <div id="voiceNavMonitor" style="background-color: #0d0e11; border: 1px solid #3f4654; padding: 15px; border-radius: 6px; text-align: center; min-height: 50px; display: flex; flex-direction: column; justify-content: center;">
+            <span id="voiceNavStatus" style="color: #666; font-size: 14px;">スタンバイ中... ボタンを押すと最初の香料を読み上げます。</span>
+            <strong id="voiceNavTarget" style="color: #00e5ff; font-size: 20px; margin-top: 5px; font-family: 'JetBrains Mono', monospace; display: none;"></strong>
+          </div>
+        </div>
+
         <!-- 追加：アコードのピラミッド可視化 -->
         <div class="section card">
           <h2>📊 香りのピラミッド（T/M/B 比率）</h2>
@@ -546,11 +566,31 @@
                 required
               ></textarea>
             </div>
-
+            <!-- 8大香気プロファイル・スライダー -->
+            <div style="margin-top: 15px; margin-bottom: 20px; border-top: 1px dashed #2c313a; padding-top: 15px;">
+              <label style="display: block; margin-bottom: 12px; font-weight: bold; color: #fff; font-size: 14px;">📊 香気プロファイル登録 (官能評価: 0〜5)</label>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px;">
+                <div class="input-group" style="margin-bottom:0;"><label style="font-size:12px; color:#4bc0c0;">🌲 Woody</label><input type="range" id="prof_woody" min="0" max="5" value="0" step="1" oninput="this.previousElementSibling.innerText='🌲 Woody: '+this.value"></div>
+                <div class="input-group" style="margin-bottom:0;"><label style="font-size:12px; color:#4bc0c0;">🍋 Citrus</label><input type="range" id="prof_citrus" min="0" max="5" value="0" step="1" oninput="this.previousElementSibling.innerText='🍋 Citrus: '+this.value"></div>
+                <div class="input-group" style="margin-bottom:0;"><label style="font-size:12px; color:#ffce56;">🌹 Floral</label><input type="range" id="prof_floral" min="0" max="5" value="0" step="1" oninput="this.previousElementSibling.innerText='🌹 Floral: '+this.value"></div>
+                <div class="input-group" style="margin-bottom:0;"><label style="font-size:12px; color:#ffce56;">🌶️ Spicy</label><input type="range" id="prof_spicy" min="0" max="5" value="0" step="1" oninput="this.previousElementSibling.innerText='🌶️ Spicy: '+this.value"></div>
+                <div class="input-group" style="margin-bottom:0;"><label style="font-size:12px; color:#ff6384;">🪵 Balsamic</label><input type="range" id="prof_balsamic" min="0" max="5" value="0" step="1" oninput="this.previousElementSibling.innerText='🪵 Balsamic: '+this.value"></div>
+                <div class="input-group" style="margin-bottom:0;"><label style="font-size:12px; color:#ff6384;">🧼 Musky</label><input type="range" id="prof_musky" min="0" max="5" value="0" step="1" oninput="this.previousElementSibling.innerText='🧼 Musky: '+this.value"></div>
+                <div class="input-group" style="margin-bottom:0;"><label style="font-size:12px; color:#00e5ff;">🐳 Amber</label><input type="range" id="prof_amber" min="0" max="5" value="0" step="1" oninput="this.previousElementSibling.innerText='🐳 Amber: '+this.value"></div>
+                <div class="input-group" style="margin-bottom:0;"><label style="font-size:12px; color:#00e5ff;">✨ Texture (質感)</label><input type="range" id="prof_texture" min="0" max="5" value="0" step="1" oninput="this.previousElementSibling.innerText='✨ Texture: '+this.value"></div>
+              </div>
+            </div>
             <button type="submit" class="btn">📝 評価ノートに記録する</button>
           </form>
         </div>
-
+        <!-- 官能可視化レーダーチャート表示エリア -->
+        <div class="section card" id="radarChartCard" style="display: none; background-color: #14171c; border: 1px solid #2c313a;">
+          <h2>📊 香気変形ダイナミクス (官能レーダーチャート)</h2>
+          <p class="subtitle">同じ作品に対して記録した、経過日数（Day 0, Day 7など）ごとの香りの「形状変化」が自動で美しく重なります。</p>
+          <div style="width: 100%; max-width: 360px; margin: 0 auto;">
+            <canvas id="macerationRadarChart"></canvas>
+          </div>
+        </div>
         <!-- タイムライン表示エリア -->
         <div class="section card">
           <h2>🕒 熟成タイムライン・履歴</h2>
