@@ -660,6 +660,7 @@
           </tr>
         </table>
 
+        <!-- 処方マトリクス -->
         <div class="pdf-section-title">処方マトリクス (スマート・コンパウンディング)</div>
         <table class="pdf-formula-table">
           <thead>
@@ -676,6 +677,9 @@
           </tbody>
         </table>
 
+        <!-- ★ここへ改ページタグを移動（グラフから2ページ目に配置） -->
+        <div class="html2pdf__page-break"></div>
+
         <!-- 香りの構成比率（グラフの埋め込みエリア） -->
         <div class="pdf-section-title">香りの構成比率 (揮発度・アコードバランス)</div>
         <div style="padding: 15px; border: 1px solid #111; background-color: #f9f9f9; margin-bottom: 25px; display: flex; align-items: center;">
@@ -689,13 +693,10 @@
           </div>
         </div>
 
-        <!-- ここで強制的にPDFのページを分割（改ページ）する -->
-        <div class="html2pdf__page-break"></div>
-
-        <!-- 熟成（マセレーション）記録・評価（動的流し込みエリア） -->
+        <!-- 熟成（マセレーション）記録・評価 -->
         <div class="pdf-section-title">熟成 (マセレーション) 記録・評価</div>
         <div id="pdfMacerationLogArea" class="pdf-maceration-box">
-          <!-- ここに新システムで入力した過去の経過メモが自動で綺麗に印字されます -->
+          <!-- 評価メモが自動印字されます -->
         </div>
       </div>
     </div>

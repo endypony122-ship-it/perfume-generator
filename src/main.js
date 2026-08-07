@@ -540,7 +540,7 @@ function calculate() {
     const gammaRatio =
       masterInfo && masterInfo.gammaRatio ? masterInfo.gammaRatio : 0;
 
-    totalCost += weight * unitPrice; // 実測重量 × 1g単価
+    totalCost += dryWeight * unitPrice; // 実質香料（ドライ）重量 × 1g単価
 
     // ウッディケミカル（ガンマ体を持つ素材）が処方に含まれていれば足し算
     if (gammaRatio > 0) {
@@ -1529,22 +1529,28 @@ window.addMasterIngredient = function (event) {
     parseFloat(document.getElementById("invDilution").value) || 100;
   const price = parseFloat(document.getElementById("invPrice").value) || 0;
   const carrierSolvent = document.getElementById("invSolvent").value;
+  const gammaRatio = parseFloat(document.getElementById("invGamma").value) || 0;
 
-  // pushの部分を以下のように拡張
+  // 1. まず重複チェックを行う（大文字・小文字を無視して同一判定）
+  if (
+    masterIngredients.some(
+      (ing) => ing.name.toLowerCase() === name.toLowerCase(),
+    )
+  ) {
+    alert("⚠️ その香料名は既に登録されています（大文字・小文字の違い含む）。");
+    return;
+  }
+
+  // 2. 重複がなければ1回だけ配列に追加する
   masterIngredients.push({
     name,
     defaultDilution,
     defaultNote,
     price,
     carrierSolvent,
+    gammaRatio,
   });
 
-  if (masterIngredients.some((ing) => ing.name === name)) {
-    alert("⚠️ その香料名は既に登録されています。");
-    return;
-  }
-
-  masterIngredients.push({ name, defaultDilution, defaultNote, price });
   sortMasterIngredients();
 
   localStorage.setItem(
@@ -2264,13 +2270,13 @@ window.toggleBlindMode = function () {
   const tableBody = document.getElementById("ingredientsBody");
   const btn = document.getElementById("btnBlindMode");
   const conceptArea = document.getElementById("concept");
+  const outputSheet = document.getElementById("outputSheet"); // ★追加：出力シートを取得
 
   if (!nameInput || !tableBody || !btn) return;
 
   isBlindMode = !isBlindMode;
 
   if (isBlindMode) {
-    // 1. レシピ名とコンセプトを記憶した上で、サイバー暗号コードへ偽装
     originalPerfumeName = nameInput.value;
     const uppercaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const randomLetter =
@@ -2278,23 +2284,22 @@ window.toggleBlindMode = function () {
     const randomCode = `🕵️ 【BLIND_PROJECT: ${randomLetter}-${Math.floor(Math.random() * 900 + 100)}】`;
 
     nameInput.value = randomCode;
-    nameInput.disabled = true; // タイトル編集を一時ロック
-    if (conceptArea) conceptArea.style.filter = "blur(8px)"; // コンセプト文をぼかす
+    nameInput.disabled = true;
+    if (conceptArea) conceptArea.style.filter = "blur(8px)";
+    if (outputSheet) outputSheet.style.filter = "blur(12px)"; // ★追加：テキストシートも強力ブロック
 
-    // 2. 香料リストに超強力な視覚遮断（サイバーぼかし）を執行
     tableBody.style.filter = "blur(14px)";
-    tableBody.style.pointerEvents = "none"; // マウス操作や手入力を完全ブロック
+    tableBody.style.pointerEvents = "none";
 
-    // 3. ボタンのステート変更
     btn.innerText = "👁️ 視覚・先入観を復元";
     btn.style.backgroundColor = "#00e676";
     btn.style.color = "#0d0e11";
   } else {
-    // 🔄 復元ロジック：元の綺麗なデータを何事もなかったかのように呼び戻す
     nameInput.value =
       originalPerfumeName || "No.3.0 / ドライ・インセンスウッド";
     nameInput.disabled = false;
     if (conceptArea) conceptArea.style.filter = "none";
+    if (outputSheet) outputSheet.style.filter = "none"; // ★追加：ボカし解除
 
     tableBody.style.filter = "none";
     tableBody.style.pointerEvents = "auto";
@@ -2581,6 +2586,18 @@ window.toggleVoiceNav = function () {
   }
 };
 
+// ★追加：音量スライダーを動かした瞬間に現在ターゲットを新音量で再コールする
+document.addEventListener("DOMContentLoaded", () => {
+  const volEl = document.getElementById("voiceVolume");
+  if (volEl) {
+    volEl.addEventListener("input", () => {
+      if (isVoiceNavActive) {
+        announceCurrentIngredient(); // スライダー操作時に即座に新しい音量でコールし直す
+      }
+    });
+  }
+});
+
 window.startVoiceNavEngine = function () {
   const ingredients = currentFormula.ingredients || [];
   if (ingredients.length === 0) {
@@ -2588,7 +2605,6 @@ window.startVoiceNavEngine = function () {
     return;
   }
 
-  // ブラウザの音声認識エンジンを起動
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
@@ -2605,45 +2621,66 @@ window.startVoiceNavEngine = function () {
 
   voiceRecognition = new SpeechRecognition();
   voiceRecognition.lang = "ja-JP";
-  voiceRecognition.continuous = true; // パフューマーが喋るまでずっと起きて待つ
+  voiceRecognition.continuous = true;
   voiceRecognition.interimResults = false;
 
-  // 音声コマンドを解析するブレイン
+  // 表記ゆれを網羅した高精度な音声判定コマンド
   voiceRecognition.onresult = function (event) {
-    const resultText =
+    const rawText =
       event.results[event.results.length - 1][0].transcript.trim();
-    console.log("🎙️ 認識された声:", resultText);
+    const text = rawText.toLowerCase();
+    console.log("🎙️ 認識された声:", rawText);
 
+    // 1. 次へ (つぎ / 次 / チェック / next)
     if (
-      resultText.includes("つぎ") ||
-      resultText.includes("次") ||
-      resultText.includes("チェック")
+      text.includes("つぎ") ||
+      text.includes("次") ||
+      text.includes("チェック") ||
+      text.includes("ちぇっく") ||
+      text.includes("next")
     ) {
       voiceNavIndex++;
       announceCurrentIngredient();
-    } else if (resultText.includes("もどる") || resultText.includes("戻る")) {
+    }
+    // 2. 戻る (もどる / 戻る / バック / back)
+    else if (
+      text.includes("もどる") ||
+      text.includes("戻る") ||
+      text.includes("バック") ||
+      text.includes("back")
+    ) {
       if (voiceNavIndex > 0) {
         voiceNavIndex--;
         announceCurrentIngredient();
       } else {
         labSpeak("これ以上は戻れません。最初の一行目です。");
       }
-    } else if (
-      resultText.includes("もう一回") ||
-      resultText.includes("もういっかい") ||
-      resultText.includes("リピート")
+    }
+    // 3. もう一回 (もう一回 / もういっかい / もう1回 / もうかい / リピート / repeat)
+    else if (
+      text.includes("もう一回") ||
+      text.includes("もういっかい") ||
+      text.includes("もう1回") ||
+      text.includes("もうかい") ||
+      text.includes("リピート") ||
+      text.includes("repeat")
     ) {
       announceCurrentIngredient();
-    } else if (
-      resultText.includes("ストップ") ||
-      resultText.includes("終了") ||
-      resultText.includes("おわり")
+    }
+    // 4. 終了・停止 (ストップ / stop / 終了 / しゅうりょう / おわり / 終わり / end)
+    else if (
+      text.includes("ストップ") ||
+      text.includes("stop") ||
+      text.includes("終了") ||
+      text.includes("しゅうりょう") ||
+      text.includes("おわり") ||
+      text.includes("終わり") ||
+      text.includes("end")
     ) {
       window.toggleVoiceNav();
     }
   };
 
-  // 途中で認識が切れても、ナビがアクティブならゾンビのように自動再起動するプロ設計
   voiceRecognition.onend = function () {
     if (isVoiceNavActive && voiceRecognition) {
       voiceRecognition.start();
@@ -2651,7 +2688,7 @@ window.startVoiceNavEngine = function () {
   };
 
   voiceRecognition.start();
-  announceCurrentIngredient(); // 最初の香料をコール
+  announceCurrentIngredient();
 };
 
 window.stopVoiceNavEngine = function () {
